@@ -267,7 +267,7 @@ fmt.Printf("[%v] SUBS %v\n", p.Pretty(), entry.Topic)
 		} else {
 			log.Debugf("pubs %s - %d", entry.Pub, entry.Priority)
 			l.Pubs(entry.Pub, entry.Priority)
-fmt.Printf("[%v] PUBS %v\n", p.Pretty(), entry.Pub)
+fmt.Printf("[%v] PUBS %v/%v\n", p.Pretty(), entry.Pub, entry.Pub.Value)
 			e.pub_channel <-entry.Pub
 // TODO(chico)
 			//if exists, err := e.bs.Has(entry.Topic); err == nil && exists {

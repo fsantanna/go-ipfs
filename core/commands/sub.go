@@ -82,7 +82,7 @@ TODO.
 			bs.SubTopics(ts, keys)
 
 			for key := range keys {
-				outChan <- &key
+				outChan <- key.Pretty()
 			}
 		}()
 	},
