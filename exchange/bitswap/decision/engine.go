@@ -87,15 +87,18 @@ type Engine struct {
 	lock sync.RWMutex // protects the fields immediatly below
 	// ledgerMap lists Ledgers by their Partner key.
 	ledgerMap map[peer.ID]*ledger
+
+	pub_channel chan pl.Pub
 }
 
-func NewEngine(ctx context.Context, bs bstore.Blockstore) *Engine {
+func NewEngine(ctx context.Context, bs bstore.Blockstore, pub_channel chan pl.Pub) *Engine {
 	e := &Engine{
 		ledgerMap:        make(map[peer.ID]*ledger),
 		bs:               bs,
 		peerRequestQueue: newPRQ(),
 		outbox:           make(chan (<-chan *Envelope), outboxChanBuffer),
 		workSignal:       make(chan struct{}, 1),
+		pub_channel:	  pub_channel,
 	}
 	go e.taskWorker(ctx)
 	return e
@@ -265,6 +268,7 @@ fmt.Printf("[%v] SUBS %v\n", p.Pretty(), entry.Topic)
 			log.Debugf("pubs %s - %d", entry.Pub, entry.Priority)
 			l.Pubs(entry.Pub, entry.Priority)
 fmt.Printf("[%v] PUBS %v\n", p.Pretty(), entry.Pub)
+			e.pub_channel <-entry.Pub
 // TODO(chico)
 			//if exists, err := e.bs.Has(entry.Topic); err == nil && exists {
 				//e.peerRequestQueue.Push(entry.Entry, p)
@@ -286,6 +290,7 @@ fmt.Printf("[%v] PUBS %v\n", p.Pretty(), entry.Pub)
 	return nil
 }
 
+/*
 func (e *Engine) Pub(pub pl.Pub) {
 	for _, p := range e.Peers() {
 		fmt.Printf("PEER %s\n", p.Pretty())
@@ -293,10 +298,11 @@ func (e *Engine) Pub(pub pl.Pub) {
 			fmt.Printf("\t%v vs %v\n", pub, sub)
 			if pub.Topic == sub.Topic {
 				fmt.Printf("\t\t OK!\n")
-	}
+			}
 		}
 	}
 }
+*/
 
 // TODO add contents of m.WantList() to my local wantlist? NB: could introduce
 // race conditions where I send a message, but MessageSent gets handled after

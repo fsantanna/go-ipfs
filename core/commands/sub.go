@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	cmds "github.com/ipfs/go-ipfs/commands"
+	key "github.com/ipfs/go-ipfs/blocks/key"
 	bitswap "github.com/ipfs/go-ipfs/exchange/bitswap"
 	sublist "github.com/ipfs/go-ipfs/exchange/bitswap/sublist"
 	u "github.com/ipfs/go-ipfs/util"
@@ -43,6 +44,13 @@ TODO.
 fmt.Printf("SUB %v => %v, %v\n", i, arg, topic)
 			ts = append(ts, topic)
 		}
-		bs.SubTopics(ts)
+
+		keys := make(chan key.Key)
+		defer close(keys)
+		bs.SubTopics(ts, keys)
+
+		for key := range keys {
+			fmt.Printf(">>> %v\n", key)
+		}
 	},
 }

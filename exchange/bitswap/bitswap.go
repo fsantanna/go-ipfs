@@ -72,11 +72,13 @@ func New(parent context.Context, p peer.ID, network bsnet.BitSwapNetwork,
 		return nil
 	})
 
+	pub_channel := make(chan publist.Pub)
+
+	// TODO close the engine with Close() method
 	bs := &Bitswap{
 		self:          p,
 		blockstore:    bstore,
 		notifications: notif,
-		engine:        decision.NewEngine(ctx, bstore), // TODO close the engine with Close() method
 		network:       network,
 		findKeys:      make(chan *blockRequest, sizeBatchRequestChan),
 		process:       px,
@@ -85,10 +87,15 @@ func New(parent context.Context, p peer.ID, network bsnet.BitSwapNetwork,
 		wm:            NewWantManager(ctx, network),
 		sm:            NewSubManager(ctx, network),
 		pm:            NewPubManager(ctx, network),
+		pub_channel:   pub_channel,
+		sub_channels:  make(map[chan key.Key]sublist.Topic),
+		engine:        decision.NewEngine(ctx, bstore, pub_channel), // TODO close the engine with Close() method
+
 	}
 	go bs.wm.Run()
 	go bs.sm.Run()
 	go bs.pm.Run()
+	go bs.pubSub()
 	network.SetDelegate(bs)
 
 	// Start up bitswaps async worker routines
@@ -141,6 +148,9 @@ type Bitswap struct {
 	blocksRecvd    int
 	dupBlocksRecvd int
 	dupDataRecvd   uint64
+
+	pub_channel    chan publist.Pub
+	sub_channels   map[chan key.Key]sublist.Topic
 }
 
 type blockRequest struct {
@@ -206,8 +216,21 @@ func (bs *Bitswap) SublistForPeer(p peer.ID) []sublist.Topic {
 	return out
 }
 
-func (bs *Bitswap) SubTopics(ks []sublist.Topic) {
+func (bs *Bitswap) SubTopics(ks []sublist.Topic, channel chan key.Key) {
 	bs.sm.SubTopics(ks)
+	for _, k := range ks {
+		bs.sub_channels[channel] = k
+	}
+}
+
+func (bs *Bitswap) pubSub() {
+	for pub := range bs.pub_channel {
+		for sub_channel, topic := range bs.sub_channels {
+			if pub.Topic == topic {
+				sub_channel <-pub.Value
+			}
+		}
+	}
 }
 
 func (bs *Bitswap) PubPubs(ks []publist.Pub) {

@@ -12,29 +12,29 @@ import (
 
 var PubCmd = &cmds.Command{
 	Helptext: cmds.HelpText{
-	    Tagline: "TODO",
+		Tagline: "TODO",
 		ShortDescription: `
 TODO.
 `,
 	},
 
 	Arguments: []cmds.Argument{
-	    cmds.StringArg("key", true, true, "key to TODO").EnableStdin(),
+		cmds.StringArg("key", true, true, "key to TODO").EnableStdin(),
 	},
 	Run: func(req cmds.Request, res cmds.Response) {
-	    nd, err := req.InvocContext().GetNode()
+		nd, err := req.InvocContext().GetNode()
 		if err != nil {
 			res.SetError(err, cmds.ErrNormal)
 			return
 		}
 
 		if !nd.OnlineMode() {
-	        res.SetError(errNotOnline, cmds.ErrClient)
-	        return
+			res.SetError(errNotOnline, cmds.ErrClient)
+			return
 		}
 
-	    bs, ok := nd.Exchange.(*bitswap.Bitswap)
-	    if !ok {
+		bs, ok := nd.Exchange.(*bitswap.Bitswap)
+		if !ok {
 			res.SetError(u.ErrCast(), cmds.ErrNormal)
 			return
 		}
@@ -42,7 +42,7 @@ TODO.
 		topic := sublist.Topic(req.Arguments()[0])
 
 		ps := []publist.Pub{}
-	    for i, arg := range req.Arguments()[1:] {
+		for i, arg := range req.Arguments()[1:] {
 			key := key.B58KeyDecode(arg)
 			if key == "" {
 				res.SetError(fmt.Errorf("incorrectly formatted key: %s", arg), cmds.ErrNormal)

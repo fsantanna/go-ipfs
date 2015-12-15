@@ -1,8 +1,8 @@
 package bitswap
 
 import (
-    //"sync"
-    "fmt"
+	//"sync"
+	"fmt"
 	"time"
 
 	context "github.com/ipfs/go-ipfs/Godeps/_workspace/src/golang.org/x/net/context"
@@ -15,7 +15,7 @@ import (
 
 type SubManager struct {
 	// sync channels for Run loop
-    incoming   chan []*bsmsg.EntrySub
+	incoming   chan []*bsmsg.EntrySub
 	connect	chan peer.ID // notification channel for new peers connecting
 	disconnect chan peer.ID // notification channel for peers disconnecting
 
@@ -29,13 +29,13 @@ type SubManager struct {
 
 func NewSubManager(ctx context.Context, network bsnet.BitSwapNetwork) *SubManager {
 	return &SubManager{
-        incoming:   make(chan []*bsmsg.EntrySub, 10),
-		connect:	make(chan peer.ID, 10),
+		incoming:   make(chan []*bsmsg.EntrySub, 10),
+		connect:    make(chan peer.ID, 10),
 		disconnect: make(chan peer.ID, 10),
-		peers:	  make(map[peer.ID]*msgQueue),
-		sl:		 sublist.NewThreadSafe(),
-		network:	network,
-		ctx:		ctx,
+		peers:      make(map[peer.ID]*msgQueue),
+		sl:         sublist.NewThreadSafe(),
+		network:    network,
+		ctx:        ctx,
 	}
 }
 
@@ -74,12 +74,12 @@ func (pm *SubManager) CancelSubs(ks []sublist.Topic) {
 }
 
 func (pm *SubManager) addEntries(ks []sublist.Topic, cancel bool) {
-    var entries []*bsmsg.EntrySub
+	var entries []*bsmsg.EntrySub
 	for i, k := range ks {
-        entries = append(entries, &bsmsg.EntrySub{
-            Cancel: cancel,
-            Entry: sublist.Entry{
-                Topic:	  k,
+		entries = append(entries, &bsmsg.EntrySub{
+			Cancel: cancel,
+				Entry: sublist.Entry{
+				Topic:	  k,
 				Priority: kMaxPriority - i,
 			},
 		})
@@ -117,13 +117,13 @@ func (pm *SubManager) startPeerHandler(p peer.ID) *msgQueue {
 	// new peer, we will sub to give them our full sublist
 	fullsublist := bsmsg.New(true)
 	for _, e := range pm.sl.Entries() {
-        fullsublist.AddEntrySub(e.Topic, e.Priority)
+		fullsublist.AddEntrySub(e.Topic, e.Priority)
 	}
 	mq.out = fullsublist
 	mq.work <- struct{}{}
 
 	pm.peers[p] = mq
-    go mq.runQueueSub(pm.ctx)
+	go mq.runQueueSub(pm.ctx)
 	return mq
 }
 
@@ -147,7 +147,7 @@ func (mq *msgQueue) runQueueSub(ctx context.Context) {
 	for {
 		select {
 		case <-mq.work: // there is work to be done
-            mq.doWorkSub(ctx)
+			mq.doWorkSub(ctx)
 		case <-mq.done:
 			return
 		case <-ctx.Done():
@@ -217,10 +217,10 @@ func (pm *SubManager) Run() {
 			// add changes to our sublist
 			for _, e := range entries {
 				if e.Cancel {
-                    pm.sl.Remove(e.Topic)
+					pm.sl.Remove(e.Topic)
 				} else {
 fmt.Printf("SUB-2 %v\n", e);
-                    pm.sl.Add(e.Topic, e.Priority)
+					pm.sl.Add(e.Topic, e.Priority)
 				}
 			}
 
@@ -228,21 +228,21 @@ fmt.Printf("SUB-2 %v\n", e);
 fmt.Printf("SUB-PEERS-2 %v\n", entries);
 			for k, p := range pm.peers {
 fmt.Printf("\t %v\n", k.Pretty());
-                p.addMessageSub(entries)
+				p.addMessageSub(entries)
 			}
 
 		case <-tock.C:
 			// resend entire sublist every so often (REALLY SHOULDNT BE NECESSARY)
-            var es []*bsmsg.EntrySub
+			var es []*bsmsg.EntrySub
 			for _, e := range pm.sl.Entries() {
-                es = append(es, &bsmsg.EntrySub{Entry: e})
+				es = append(es, &bsmsg.EntrySub{Entry: e})
 			}
 			for _, p := range pm.peers {
 				p.outlk.Lock()
 				p.out = bsmsg.New(true)
 				p.outlk.Unlock()
 
-                p.addMessageSub(es)
+				p.addMessageSub(es)
 			}
 		case p := <-pm.connect:
 			pm.startPeerHandler(p)
@@ -266,8 +266,8 @@ func (wm *SubManager) newMsgQueue(p peer.ID) *msgQueue {
 }
 
 func (mq *msgQueue) addMessageSub(entries []*bsmsg.EntrySub) {
-    mq.outlk.Lock()
-    defer func() {
+	mq.outlk.Lock()
+	defer func() {
 		mq.outlk.Unlock()
 		select {
 		case mq.work <- struct{}{}:
@@ -281,14 +281,14 @@ func (mq *msgQueue) addMessageSub(entries []*bsmsg.EntrySub) {
 		mq.out = bsmsg.New(false)
 	}
 
-    // TODO: add a msg.Combine(...) method
+	// TODO: add a msg.Combine(...) method
 	// otherwise, combine the one we are holding with the
 	// one passed in
 	for _, e := range entries {
 		if e.Cancel {
-            mq.out.CancelSub(e.Topic)
+			mq.out.CancelSub(e.Topic)
 		} else {
-            mq.out.AddEntrySub(e.Topic, e.Priority)
+			mq.out.AddEntrySub(e.Topic, e.Priority)
 		}
 	}
 }
