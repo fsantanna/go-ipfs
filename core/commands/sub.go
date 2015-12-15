@@ -32,7 +32,6 @@ TODO.
 			}
 
 			marshal := func(v interface{}) (io.Reader, error) {
-				fmt.Println(reflect.TypeOf(v))
 				obj, ok := v.(string)
 				if !ok {
 					return nil, u.ErrCast()
@@ -69,7 +68,7 @@ TODO.
 		}
 
 		ts := []sublist.Topic{}
-		for i, arg := range req.Arguments() {
+		for _, arg := range req.Arguments() {
 			topic := sublist.Topic(arg)
 			ts = append(ts, topic)
 		}
