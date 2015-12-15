@@ -1,12 +1,14 @@
 package message
 
 import (
+	"fmt"
 	"io"
 
 	blocks "github.com/ipfs/go-ipfs/blocks"
 	key "github.com/ipfs/go-ipfs/blocks/key"
 	pb "github.com/ipfs/go-ipfs/exchange/bitswap/message/pb"
 	wantlist "github.com/ipfs/go-ipfs/exchange/bitswap/wantlist"
+	sublist "github.com/ipfs/go-ipfs/exchange/bitswap/sublist"
 	inet "github.com/ipfs/go-ipfs/p2p/net"
 
 	ggio "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/gogo/protobuf/io"
@@ -21,6 +23,10 @@ type BitSwapMessage interface {
 	// the sender.
 	Wantlist() []Entry
 
+	// Sublist returns a slice of unique keys that represent data subscribed by
+	// the sender.
+	Sublist() []EntrySub
+
 	// Blocks returns a slice of unique blocks
 	Blocks() []*blocks.Block
 
@@ -33,6 +39,11 @@ type BitSwapMessage interface {
 
 	// A full wantlist is an authoritative copy, a 'non-full' wantlist is a patch-set
 	Full() bool
+
+	// AddSub adds an entry to the Sublist.
+	AddEntrySub(key sublist.Topic, priority int)
+
+	CancelSub(key sublist.Topic)
 
 	AddBlock(*blocks.Block)
 	Exportable
@@ -48,6 +59,7 @@ type Exportable interface {
 type impl struct {
 	full     bool
 	wantlist map[key.Key]Entry
+	sublist  map[sublist.Topic]EntrySub
 	blocks   map[key.Key]*blocks.Block
 }
 
@@ -59,6 +71,7 @@ func newMsg(full bool) *impl {
 	return &impl{
 		blocks:   make(map[key.Key]*blocks.Block),
 		wantlist: make(map[key.Key]Entry),
+		sublist:  make(map[sublist.Topic]EntrySub),
 		full:     full,
 	}
 }
@@ -68,10 +81,19 @@ type Entry struct {
 	Cancel bool
 }
 
+type EntrySub struct {
+	sublist.Entry
+	Cancel bool
+}
+
 func newMessageFromProto(pbm pb.Message) BitSwapMessage {
 	m := newMsg(pbm.GetWantlist().GetFull())
 	for _, e := range pbm.GetWantlist().GetEntries() {
 		m.addEntry(key.Key(e.GetBlock()), int(e.GetPriority()), e.GetCancel())
+	}
+	//m = newMsg(pbm.GetSublist().GetFull())
+	for _, e := range pbm.GetSublist().GetEntries() {
+		m.addEntrySub(sublist.Topic(e.GetTopic()), int(e.GetPriority()), e.GetCancel())
 	}
 	for _, d := range pbm.GetBlocks() {
 		b := blocks.NewBlock(d)
@@ -85,12 +107,20 @@ func (m *impl) Full() bool {
 }
 
 func (m *impl) Empty() bool {
-	return len(m.blocks) == 0 && len(m.wantlist) == 0
+	return len(m.blocks) == 0 && len(m.wantlist) == 0 && len(m.sublist) == 0
 }
 
 func (m *impl) Wantlist() []Entry {
 	var out []Entry
 	for _, e := range m.wantlist {
+		out = append(out, e)
+	}
+	return out
+}
+
+func (m *impl) Sublist() []EntrySub {
+	var out []EntrySub
+	for _, e := range m.sublist {
 		out = append(out, e)
 	}
 	return out
@@ -129,6 +159,32 @@ func (m *impl) addEntry(k key.Key, priority int, cancel bool) {
 	}
 }
 
+func (m *impl) CancelSub(k sublist.Topic) {
+	delete(m.sublist, k)
+	m.addEntrySub(k, 0, true)
+}
+
+func (m *impl) AddEntrySub(k sublist.Topic, priority int) {
+	m.addEntrySub(k, priority, false)
+}
+
+func (m *impl) addEntrySub(k sublist.Topic, priority int, cancel bool) {
+	e, exists := m.sublist[k]
+	if exists {
+		e.Priority = priority
+		e.Cancel = cancel
+	} else {
+fmt.Printf("ADD-4 %v %v\n", k, cancel);
+		m.sublist[k] = EntrySub{
+			Entry: sublist.Entry{
+				Topic:    k,
+				Priority: priority,
+			},
+			Cancel: cancel,
+		}
+	}
+}
+
 func (m *impl) AddBlock(b *blocks.Block) {
 	m.blocks[b.Key()] = b
 }
@@ -151,6 +207,14 @@ func (m *impl) ToProto() *pb.Message {
 	for _, e := range m.wantlist {
 		pbm.Wantlist.Entries = append(pbm.Wantlist.Entries, &pb.Message_Wantlist_Entry{
 			Block:    proto.String(string(e.Key)),
+			Priority: proto.Int32(int32(e.Priority)),
+			Cancel:   proto.Bool(e.Cancel),
+		})
+	}
+	pbm.Sublist = new(pb.Message_Sublist)
+	for _, e := range m.sublist {
+		pbm.Sublist.Entries = append(pbm.Sublist.Entries, &pb.Message_Sublist_Entry{
+			Topic:    proto.String(string(e.Topic)),
 			Priority: proto.Int32(int32(e.Priority)),
 			Cancel:   proto.Bool(e.Cancel),
 		})
@@ -178,5 +242,6 @@ func (m *impl) Loggable() map[string]interface{} {
 	return map[string]interface{}{
 		"blocks": blocks,
 		"wants":  m.Wantlist(),
+		"subs":   m.Sublist(),
 	}
 }

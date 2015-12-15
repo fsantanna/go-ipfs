@@ -32,6 +32,8 @@ BASIC COMMANDS
     init          Initialize ipfs local configuration
     add <path>    Add an object to ipfs
     cat <ref>     Show ipfs object data
+    pub <?>       TODO
+    sub <?>       TODO
     get <ref>     Download ipfs objects
     ls <ref>      List links from an object
     refs <ref>    List hashes of links from an object
@@ -94,6 +96,8 @@ var rootSubcommands = map[string]*cmds.Command{
 	"block":     BlockCmd,
 	"bootstrap": BootstrapCmd,
 	"cat":       CatCmd,
+	"pub":       PubCmd,
+	"sub":       SubCmd,
 	"commands":  CommandsDaemonCmd,
 	"config":    ConfigCmd,
 	"dht":       DhtCmd,
@@ -136,6 +140,8 @@ var rootROSubcommands = map[string]*cmds.Command{
 		},
 	},
 	"cat":      CatCmd,
+	"pub":      PubCmd,
+	"sub":      SubCmd,
 	"commands": CommandsDaemonROCmd,
 	"get":      GetCmd,
 	"ls":       LsCmd,

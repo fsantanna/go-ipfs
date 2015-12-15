@@ -1,45 +1,45 @@
 package bitswap
 
 import (
-	"fmt"
-	"sync"
+    //"sync"
+    "fmt"
 	"time"
 
 	context "github.com/ipfs/go-ipfs/Godeps/_workspace/src/golang.org/x/net/context"
-	key "github.com/ipfs/go-ipfs/blocks/key"
 	engine "github.com/ipfs/go-ipfs/exchange/bitswap/decision"
 	bsmsg "github.com/ipfs/go-ipfs/exchange/bitswap/message"
 	bsnet "github.com/ipfs/go-ipfs/exchange/bitswap/network"
-	wantlist "github.com/ipfs/go-ipfs/exchange/bitswap/wantlist"
+	sublist "github.com/ipfs/go-ipfs/exchange/bitswap/sublist"
 	peer "github.com/ipfs/go-ipfs/p2p/peer"
 )
 
-type WantManager struct {
+type SubManager struct {
 	// sync channels for Run loop
-	incoming   chan []*bsmsg.Entry
-	connect    chan peer.ID // notification channel for new peers connecting
+    incoming   chan []*bsmsg.EntrySub
+	connect	chan peer.ID // notification channel for new peers connecting
 	disconnect chan peer.ID // notification channel for peers disconnecting
 
 	// synchronized by Run loop, only touch inside there
 	peers map[peer.ID]*msgQueue
-	wl    *wantlist.ThreadSafe
+	sl	*sublist.ThreadSafe
 
 	network bsnet.BitSwapNetwork
-	ctx     context.Context
+	ctx	 context.Context
 }
 
-func NewWantManager(ctx context.Context, network bsnet.BitSwapNetwork) *WantManager {
-	return &WantManager{
-		incoming:   make(chan []*bsmsg.Entry, 10),
-		connect:    make(chan peer.ID, 10),
+func NewSubManager(ctx context.Context, network bsnet.BitSwapNetwork) *SubManager {
+	return &SubManager{
+        incoming:   make(chan []*bsmsg.EntrySub, 10),
+		connect:	make(chan peer.ID, 10),
 		disconnect: make(chan peer.ID, 10),
-		peers:      make(map[peer.ID]*msgQueue),
-		wl:         wantlist.NewThreadSafe(),
-		network:    network,
-		ctx:        ctx,
+		peers:	  make(map[peer.ID]*msgQueue),
+		sl:		 sublist.NewThreadSafe(),
+		network:	network,
+		ctx:		ctx,
 	}
 }
 
+/*
 type msgPair struct {
 	to  peer.ID
 	msg bsmsg.BitSwapMessage
@@ -47,14 +47,14 @@ type msgPair struct {
 
 type cancellation struct {
 	who peer.ID
-	blk key.Key
+	blk sublist.Topic
 }
 
 type msgQueue struct {
 	p peer.ID
 
 	outlk   sync.Mutex
-	out     bsmsg.BitSwapMessage
+	out	 bsmsg.BitSwapMessage
 	network bsnet.BitSwapNetwork
 
 	refcnt int
@@ -62,34 +62,36 @@ type msgQueue struct {
 	work chan struct{}
 	done chan struct{}
 }
+*/
 
-func (pm *WantManager) WantBlocks(ks []key.Key) {
-	log.Infof("want blocks: %s", ks)
+func (pm *SubManager) SubTopics(ks []sublist.Topic) {
+	log.Infof("sub blocks: %s", ks)
 	pm.addEntries(ks, false)
 }
 
-func (pm *WantManager) CancelWants(ks []key.Key) {
+func (pm *SubManager) CancelSubs(ks []sublist.Topic) {
 	pm.addEntries(ks, true)
 }
 
-func (pm *WantManager) addEntries(ks []key.Key, cancel bool) {
-	var entries []*bsmsg.Entry
+func (pm *SubManager) addEntries(ks []sublist.Topic, cancel bool) {
+    var entries []*bsmsg.EntrySub
 	for i, k := range ks {
-		entries = append(entries, &bsmsg.Entry{
-			Cancel: cancel,
-			Entry: wantlist.Entry{
-				Key:      k,
+        entries = append(entries, &bsmsg.EntrySub{
+            Cancel: cancel,
+            Entry: sublist.Entry{
+                Topic:	  k,
 				Priority: kMaxPriority - i,
 			},
 		})
 	}
+fmt.Printf("ADD-1 %v\n", entries);
 	select {
 	case pm.incoming <- entries:
 	case <-pm.ctx.Done():
 	}
 }
 
-func (pm *WantManager) SendBlock(ctx context.Context, env *engine.Envelope) {
+func (pm *SubManager) SendBlock(ctx context.Context, env *engine.Envelope) {
 	// Blocks need to be sent synchronously to maintain proper backpressure
 	// throughout the network stack
 	defer env.Sent()
@@ -103,7 +105,7 @@ func (pm *WantManager) SendBlock(ctx context.Context, env *engine.Envelope) {
 	}
 }
 
-func (pm *WantManager) startPeerHandler(p peer.ID) *msgQueue {
+func (pm *SubManager) startPeerHandler(p peer.ID) *msgQueue {
 	mq, ok := pm.peers[p]
 	if ok {
 		mq.refcnt++
@@ -112,20 +114,20 @@ func (pm *WantManager) startPeerHandler(p peer.ID) *msgQueue {
 
 	mq = pm.newMsgQueue(p)
 
-	// new peer, we will want to give them our full wantlist
-	fullwantlist := bsmsg.New(true)
-	for _, e := range pm.wl.Entries() {
-		fullwantlist.AddEntry(e.Key, e.Priority)
+	// new peer, we will sub to give them our full sublist
+	fullsublist := bsmsg.New(true)
+	for _, e := range pm.sl.Entries() {
+        fullsublist.AddEntrySub(e.Topic, e.Priority)
 	}
-	mq.out = fullwantlist
+	mq.out = fullsublist
 	mq.work <- struct{}{}
 
 	pm.peers[p] = mq
-	go mq.runQueue(pm.ctx)
+    go mq.runQueueSub(pm.ctx)
 	return mq
 }
 
-func (pm *WantManager) stopPeerHandler(p peer.ID) {
+func (pm *SubManager) stopPeerHandler(p peer.ID) {
 	pq, ok := pm.peers[p]
 	if !ok {
 		// TODO: log error?
@@ -141,11 +143,11 @@ func (pm *WantManager) stopPeerHandler(p peer.ID) {
 	delete(pm.peers, p)
 }
 
-func (mq *msgQueue) runQueue(ctx context.Context) {
+func (mq *msgQueue) runQueueSub(ctx context.Context) {
 	for {
 		select {
 		case <-mq.work: // there is work to be done
-			mq.doWork(ctx)
+            mq.doWorkSub(ctx)
 		case <-mq.done:
 			return
 		case <-ctx.Done():
@@ -154,7 +156,7 @@ func (mq *msgQueue) runQueue(ctx context.Context) {
 	}
 }
 
-func (mq *msgQueue) doWork(ctx context.Context) {
+func (mq *msgQueue) doWorkSub(ctx context.Context) {
 	// allow ten minutes for connections
 	// this includes looking them up in the dht
 	// dialing them, and handshaking
@@ -181,7 +183,7 @@ func (mq *msgQueue) doWork(ctx context.Context) {
 	sendctx, cancel := context.WithTimeout(ctx, time.Minute*5)
 	defer cancel()
 
-	// send wantlist updates
+	// send sublist updates
 	err = mq.network.SendMessage(sendctx, mq.p, wlm)
 	if err != nil {
 		log.Infof("bitswap send error: %s", err)
@@ -190,14 +192,14 @@ func (mq *msgQueue) doWork(ctx context.Context) {
 	}
 }
 
-func (pm *WantManager) Connected(p peer.ID) {
+func (pm *SubManager) Connected(p peer.ID) {
 	select {
 	case pm.connect <- p:
 	case <-pm.ctx.Done():
 	}
 }
 
-func (pm *WantManager) Disconnected(p peer.ID) {
+func (pm *SubManager) Disconnected(p peer.ID) {
 	select {
 	case pm.disconnect <- p:
 	case <-pm.ctx.Done():
@@ -205,41 +207,42 @@ func (pm *WantManager) Disconnected(p peer.ID) {
 }
 
 // TODO: use goprocess here once i trust it
-func (pm *WantManager) Run() {
+func (pm *SubManager) Run() {
 	tock := time.NewTicker(rebroadcastDelay.Get())
 	defer tock.Stop()
 	for {
 		select {
 		case entries := <-pm.incoming:
 
-			// add changes to our wantlist
+			// add changes to our sublist
 			for _, e := range entries {
 				if e.Cancel {
-					pm.wl.Remove(e.Key)
+                    pm.sl.Remove(e.Topic)
 				} else {
-					pm.wl.Add(e.Key, e.Priority)
+fmt.Printf("ADD-2 %v\n", e);
+                    pm.sl.Add(e.Topic, e.Priority)
 				}
 			}
 
-			// broadcast those wantlist changes
-fmt.Printf("PEERS-X %v\n", entries);
+			// broadcast those sublist changes
+fmt.Printf("PEERS-2 %v\n", entries);
 			for k, p := range pm.peers {
 fmt.Printf("\t %v\n", k.Pretty());
-				p.addMessage(entries)
+                p.addMessageSub(entries)
 			}
 
 		case <-tock.C:
-			// resend entire wantlist every so often (REALLY SHOULDNT BE NECESSARY)
-			var es []*bsmsg.Entry
-			for _, e := range pm.wl.Entries() {
-				es = append(es, &bsmsg.Entry{Entry: e})
+			// resend entire sublist every so often (REALLY SHOULDNT BE NECESSARY)
+            var es []*bsmsg.EntrySub
+			for _, e := range pm.sl.Entries() {
+                es = append(es, &bsmsg.EntrySub{Entry: e})
 			}
 			for _, p := range pm.peers {
 				p.outlk.Lock()
 				p.out = bsmsg.New(true)
 				p.outlk.Unlock()
 
-				p.addMessage(es)
+                p.addMessageSub(es)
 			}
 		case p := <-pm.connect:
 			pm.startPeerHandler(p)
@@ -251,7 +254,7 @@ fmt.Printf("\t %v\n", k.Pretty());
 	}
 }
 
-func (wm *WantManager) newMsgQueue(p peer.ID) *msgQueue {
+func (wm *SubManager) newMsgQueue(p peer.ID) *msgQueue {
 	mq := new(msgQueue)
 	mq.done = make(chan struct{})
 	mq.work = make(chan struct{}, 1)
@@ -262,9 +265,9 @@ func (wm *WantManager) newMsgQueue(p peer.ID) *msgQueue {
 	return mq
 }
 
-func (mq *msgQueue) addMessage(entries []*bsmsg.Entry) {
-	mq.outlk.Lock()
-	defer func() {
+func (mq *msgQueue) addMessageSub(entries []*bsmsg.EntrySub) {
+    mq.outlk.Lock()
+    defer func() {
 		mq.outlk.Unlock()
 		select {
 		case mq.work <- struct{}{}:
@@ -278,14 +281,17 @@ func (mq *msgQueue) addMessage(entries []*bsmsg.Entry) {
 		mq.out = bsmsg.New(false)
 	}
 
+fmt.Printf("XXX-3 %v\n", entries);
 	// TODO: add a msg.Combine(...) method
 	// otherwise, combine the one we are holding with the
 	// one passed in
 	for _, e := range entries {
 		if e.Cancel {
-			mq.out.Cancel(e.Key)
+fmt.Printf("REM-3 %v\n", e);
+            mq.out.CancelSub(e.Topic)
 		} else {
-			mq.out.AddEntry(e.Key, e.Priority)
+fmt.Printf("ADD-3 %v\n", e);
+            mq.out.AddEntrySub(e.Topic, e.Priority)
 		}
 	}
 }

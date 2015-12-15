@@ -2,6 +2,7 @@
 package decision
 
 import (
+    "fmt"
 	"sync"
 
 	context "github.com/ipfs/go-ipfs/Godeps/_workspace/src/golang.org/x/net/context"
@@ -9,6 +10,7 @@ import (
 	bstore "github.com/ipfs/go-ipfs/blocks/blockstore"
 	bsmsg "github.com/ipfs/go-ipfs/exchange/bitswap/message"
 	wl "github.com/ipfs/go-ipfs/exchange/bitswap/wantlist"
+	sl "github.com/ipfs/go-ipfs/exchange/bitswap/sublist"
 	peer "github.com/ipfs/go-ipfs/p2p/peer"
 	logging "github.com/ipfs/go-ipfs/vendor/QmQg1J6vikuXF9oDvm4wpdeAUvvkVEKW1EYDw9HhTMnP2b/go-log"
 )
@@ -108,6 +110,16 @@ func (e *Engine) WantlistForPeer(p peer.ID) (out []wl.Entry) {
 	return out
 }
 
+func (e *Engine) SublistForPeer(p peer.ID) (out []sl.Entry) {
+	e.lock.Lock()
+	partner, ok := e.ledgerMap[p]
+	if ok {
+		out = partner.subList.SortedEntries()
+	}
+	e.lock.Unlock()
+	return out
+}
+
 func (e *Engine) taskWorker(ctx context.Context) {
 	defer close(e.outbox) // because taskWorker uses the channel exclusively
 	for {
@@ -192,7 +204,7 @@ func (e *Engine) MessageReceived(p peer.ID, m bsmsg.BitSwapMessage) error {
 	e.lock.Lock()
 	defer e.lock.Unlock()
 
-	if len(m.Wantlist()) == 0 && len(m.Blocks()) == 0 {
+	if len(m.Wantlist()) == 0 && len(m.Sublist()) == 0 && len(m.Blocks()) == 0 {
 		log.Debugf("received empty message from %s", p)
 	}
 
@@ -206,6 +218,7 @@ func (e *Engine) MessageReceived(p peer.ID, m bsmsg.BitSwapMessage) error {
 	l := e.findOrCreate(p)
 	if m.Full() {
 		l.wantList = wl.New()
+		l.subList  = sl.New()
 	}
 
 	for _, entry := range m.Wantlist() {
@@ -220,6 +233,24 @@ func (e *Engine) MessageReceived(p peer.ID, m bsmsg.BitSwapMessage) error {
 				e.peerRequestQueue.Push(entry.Entry, p)
 				newWorkExists = true
 			}
+		}
+	}
+
+	for _, entry := range m.Sublist() {
+		if entry.Cancel {
+			log.Debugf("cancel %s", entry.Topic)
+			l.CancelSub(entry.Topic)
+// TODO(chico)
+			//e.peerRequestQueue.Remove(entry.Topic, p)
+		} else {
+			log.Debugf("subs %s - %d", entry.Topic, entry.Priority)
+			l.Subs(entry.Topic, entry.Priority)
+fmt.Printf("[%v] WANTS %v\n", p.Pretty(), entry.Topic)
+// TODO(chico)
+			//if exists, err := e.bs.Has(entry.Topic); err == nil && exists {
+				//e.peerRequestQueue.Push(entry.Entry, p)
+				//newWorkExists = true
+			//}
 		}
 	}
 
