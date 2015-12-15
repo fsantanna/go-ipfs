@@ -26,7 +26,21 @@ message Message {
     optional bool full = 2;     // whether this is the full sublist. default to false
   }
 
+  message Publist {
+
+    message Entry {
+      optional string topic = 1; // the topic string
+      optional string block = 2; // the block (value) key
+      optional int32 priority = 3; // the priority (normalized). default to 1
+      optional bool cancel = 4;  // whether this revokes an entry
+    }
+
+    repeated Entry entries = 1; // a list of sublist entries
+    optional bool full = 2;     // whether this is the full sublist. default to false
+  }
+
   optional Wantlist wantlist = 1;
   optional Sublist sublist = 2;
+  optional Publist publist = 3;
   repeated bytes blocks = 4;
 }

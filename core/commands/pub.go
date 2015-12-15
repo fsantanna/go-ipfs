@@ -6,6 +6,7 @@ import (
 	cmds "github.com/ipfs/go-ipfs/commands"
 	bitswap "github.com/ipfs/go-ipfs/exchange/bitswap"
 	sublist "github.com/ipfs/go-ipfs/exchange/bitswap/sublist"
+	publist "github.com/ipfs/go-ipfs/exchange/bitswap/publist"
 	u "github.com/ipfs/go-ipfs/util"
 )
 
@@ -39,16 +40,17 @@ TODO.
 		}
 
 		topic := sublist.Topic(req.Arguments()[0])
-		fmt.Printf("PUB %v\n", topic)
 
+		ps := []publist.Pub{}
 	    for i, arg := range req.Arguments()[1:] {
 			key := key.B58KeyDecode(arg)
 			if key == "" {
 				res.SetError(fmt.Errorf("incorrectly formatted key: %s", arg), cmds.ErrNormal)
 				return
 			}
-			fmt.Printf("\t%v => %v, %v\n", i, topic, key)
-			bs.Pub(topic, key)
-	    }
+fmt.Printf("PUB %v => %v, %v\n", i, topic, key)
+			ps = append(ps, publist.Pub{topic, key})
+		}
+		bs.PubPubs(ps)
 	},
 }

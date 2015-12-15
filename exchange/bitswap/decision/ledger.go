@@ -6,6 +6,7 @@ import (
 	key "github.com/ipfs/go-ipfs/blocks/key"
 	wl "github.com/ipfs/go-ipfs/exchange/bitswap/wantlist"
 	sl "github.com/ipfs/go-ipfs/exchange/bitswap/sublist"
+	pl "github.com/ipfs/go-ipfs/exchange/bitswap/publist"
 	peer "github.com/ipfs/go-ipfs/p2p/peer"
 )
 
@@ -17,6 +18,7 @@ func newLedger(p peer.ID) *ledger {
 	return &ledger{
 		wantList:   wl.New(),
 		subList:    sl.New(),
+		pubList:    pl.New(),
 		Partner:    p,
 		sentToPeer: make(map[key.Key]time.Time),
 	}
@@ -45,6 +47,9 @@ type ledger struct {
 
 	// subList is a (bounded, small) set of topics that Partner subscribed.
 	subList *sl.Sublist
+
+	// pubList is a (bounded, small) set of topics that Partner published.
+	pubList *pl.Publist
 
 	// sentToPeer is a set of keys to ensure we dont send duplicate blocks
 	// to a given peer
@@ -98,6 +103,20 @@ func (l *ledger) CancelSub(k sl.Topic) {
 
 func (l *ledger) SubListContains(k sl.Topic) (sl.Entry, bool) {
 	return l.subList.Contains(k)
+}
+
+// TODO: this needs to be different. We need timeouts.
+func (l *ledger) Pubs(k pl.Pub, priority int) {
+	log.Debugf("peer %s pubs %s", l.Partner, k)
+	l.pubList.Add(k, priority)
+}
+
+func (l *ledger) CancelPub(k pl.Pub) {
+	l.pubList.Remove(k)
+}
+
+func (l *ledger) PubListContains(k pl.Pub) (pl.Entry, bool) {
+	return l.pubList.Contains(k)
 }
 
 func (l *ledger) ExchangeCount() uint64 {

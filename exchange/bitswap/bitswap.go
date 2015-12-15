@@ -3,7 +3,7 @@
 package bitswap
 
 import (
-	"fmt"
+	//"fmt"
 	"errors"
 	"math"
 	"sync"
@@ -22,6 +22,7 @@ import (
 	notifications "github.com/ipfs/go-ipfs/exchange/bitswap/notifications"
 	wantlist "github.com/ipfs/go-ipfs/exchange/bitswap/wantlist"
 	sublist "github.com/ipfs/go-ipfs/exchange/bitswap/sublist"
+	publist "github.com/ipfs/go-ipfs/exchange/bitswap/publist"
 	peer "github.com/ipfs/go-ipfs/p2p/peer"
 	"github.com/ipfs/go-ipfs/thirdparty/delay"
 	logging "github.com/ipfs/go-ipfs/vendor/QmQg1J6vikuXF9oDvm4wpdeAUvvkVEKW1EYDw9HhTMnP2b/go-log"
@@ -83,9 +84,11 @@ func New(parent context.Context, p peer.ID, network bsnet.BitSwapNetwork,
 		provideKeys:   make(chan key.Key, provideKeysBufferSize),
 		wm:            NewWantManager(ctx, network),
 		sm:            NewSubManager(ctx, network),
+		pm:            NewPubManager(ctx, network),
 	}
 	go bs.wm.Run()
 	go bs.sm.Run()
+	go bs.pm.Run()
 	network.SetDelegate(bs)
 
 	// Start up bitswaps async worker routines
@@ -114,10 +117,8 @@ type Bitswap struct {
 	// the peermanager manages sending messages to peers in a way that
 	// wont block bitswap operation
 	wm *WantManager
-
-	// the peermanager manages sending messages to peers in a way that
-	// wont block bitswap operation
 	sm *SubManager
+	pm *PubManager
 
 	// blockstore is the local database
 	// NB: ensure threadsafety
@@ -209,16 +210,8 @@ func (bs *Bitswap) SubTopics(ks []sublist.Topic) {
 	bs.sm.SubTopics(ks)
 }
 
-func (bs *Bitswap) Pub(k1 sublist.Topic, v key.Key) {
-    for _, p := range bs.engine.Peers() {
-		fmt.Printf("PEER %s\n", p.Pretty())
-		for _,k2 := range(bs.SublistForPeer(p)) {
-			fmt.Printf("\t%v vs %v\n", k1, k2)
-			if k2 == k1 {
-				fmt.Printf("\t\t OK!\n")
-            }
-        }
-    }
+func (bs *Bitswap) PubPubs(ks []publist.Pub) {
+	bs.pm.PubPubs(ks)
 }
 
 // GetBlocks returns a channel where the caller may receive blocks that
@@ -400,12 +393,14 @@ func (bs *Bitswap) updateReceiveCounters(b *blocks.Block) error {
 func (bs *Bitswap) PeerConnected(p peer.ID) {
 	bs.wm.Connected(p)
 	bs.sm.Connected(p)
+	bs.pm.Connected(p)
 }
 
 // Connected/Disconnected warns bitswap about peer connections
 func (bs *Bitswap) PeerDisconnected(p peer.ID) {
 	bs.wm.Disconnected(p)
 	bs.sm.Disconnected(p)
+	bs.pm.Disconnected(p)
 	bs.engine.PeerDisconnected(p)
 }
 

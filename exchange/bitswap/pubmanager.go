@@ -9,31 +9,31 @@ import (
 	engine "github.com/ipfs/go-ipfs/exchange/bitswap/decision"
 	bsmsg "github.com/ipfs/go-ipfs/exchange/bitswap/message"
 	bsnet "github.com/ipfs/go-ipfs/exchange/bitswap/network"
-	sublist "github.com/ipfs/go-ipfs/exchange/bitswap/sublist"
+	publist "github.com/ipfs/go-ipfs/exchange/bitswap/publist"
 	peer "github.com/ipfs/go-ipfs/p2p/peer"
 )
 
-type SubManager struct {
+type PubManager struct {
 	// sync channels for Run loop
-    incoming   chan []*bsmsg.EntrySub
+    incoming   chan []*bsmsg.EntryPub
 	connect	chan peer.ID // notification channel for new peers connecting
 	disconnect chan peer.ID // notification channel for peers disconnecting
 
 	// synchronized by Run loop, only touch inside there
 	peers map[peer.ID]*msgQueue
-	sl	*sublist.ThreadSafe
+	pl	*publist.ThreadSafe
 
 	network bsnet.BitSwapNetwork
 	ctx	 context.Context
 }
 
-func NewSubManager(ctx context.Context, network bsnet.BitSwapNetwork) *SubManager {
-	return &SubManager{
-        incoming:   make(chan []*bsmsg.EntrySub, 10),
+func NewPubManager(ctx context.Context, network bsnet.BitSwapNetwork) *PubManager {
+	return &PubManager{
+        incoming:   make(chan []*bsmsg.EntryPub, 10),
 		connect:	make(chan peer.ID, 10),
 		disconnect: make(chan peer.ID, 10),
 		peers:	  make(map[peer.ID]*msgQueue),
-		sl:		 sublist.NewThreadSafe(),
+		pl:		 publist.NewThreadSafe(),
 		network:	network,
 		ctx:		ctx,
 	}
@@ -47,7 +47,7 @@ type msgPair struct {
 
 type cancellation struct {
 	who peer.ID
-	blk sublist.Topic
+	blk publist.Topic
 }
 
 type msgQueue struct {
@@ -64,34 +64,34 @@ type msgQueue struct {
 }
 */
 
-func (pm *SubManager) SubTopics(ks []sublist.Topic) {
-	log.Infof("sub blocks: %s", ks)
+func (pm *PubManager) PubPubs(ks []publist.Pub) {
+	log.Infof("pub blocks: %s", ks)
 	pm.addEntries(ks, false)
 }
 
-func (pm *SubManager) CancelSubs(ks []sublist.Topic) {
+func (pm *PubManager) CancelPubs(ks []publist.Pub) {
 	pm.addEntries(ks, true)
 }
 
-func (pm *SubManager) addEntries(ks []sublist.Topic, cancel bool) {
-    var entries []*bsmsg.EntrySub
+func (pm *PubManager) addEntries(ks []publist.Pub, cancel bool) {
+    var entries []*bsmsg.EntryPub
 	for i, k := range ks {
-        entries = append(entries, &bsmsg.EntrySub{
+        entries = append(entries, &bsmsg.EntryPub{
             Cancel: cancel,
-            Entry: sublist.Entry{
-                Topic:	  k,
+            Entry: publist.Entry{
+				Pub:	  k,
 				Priority: kMaxPriority - i,
 			},
 		})
 	}
-fmt.Printf("SUB-1 %v\n", entries);
+fmt.Printf("PUB-1 %v\n", entries);
 	select {
 	case pm.incoming <- entries:
 	case <-pm.ctx.Done():
 	}
 }
 
-func (pm *SubManager) SendBlock(ctx context.Context, env *engine.Envelope) {
+func (pm *PubManager) SendBlock(ctx context.Context, env *engine.Envelope) {
 	// Blocks need to be sent synchronously to maintain proper backpressure
 	// throughout the network stack
 	defer env.Sent()
@@ -105,7 +105,7 @@ func (pm *SubManager) SendBlock(ctx context.Context, env *engine.Envelope) {
 	}
 }
 
-func (pm *SubManager) startPeerHandler(p peer.ID) *msgQueue {
+func (pm *PubManager) startPeerHandler(p peer.ID) *msgQueue {
 	mq, ok := pm.peers[p]
 	if ok {
 		mq.refcnt++
@@ -114,20 +114,20 @@ func (pm *SubManager) startPeerHandler(p peer.ID) *msgQueue {
 
 	mq = pm.newMsgQueue(p)
 
-	// new peer, we will sub to give them our full sublist
-	fullsublist := bsmsg.New(true)
-	for _, e := range pm.sl.Entries() {
-        fullsublist.AddEntrySub(e.Topic, e.Priority)
+	// new peer, we will pub to give them our full publist
+	fullpublist := bsmsg.New(true)
+	for _, e := range pm.pl.Entries() {
+		fullpublist.AddEntryPub(e.Pub, e.Priority)
 	}
-	mq.out = fullsublist
+	mq.out = fullpublist
 	mq.work <- struct{}{}
 
 	pm.peers[p] = mq
-    go mq.runQueueSub(pm.ctx)
+    go mq.runQueuePub(pm.ctx)
 	return mq
 }
 
-func (pm *SubManager) stopPeerHandler(p peer.ID) {
+func (pm *PubManager) stopPeerHandler(p peer.ID) {
 	pq, ok := pm.peers[p]
 	if !ok {
 		// TODO: log error?
@@ -143,11 +143,11 @@ func (pm *SubManager) stopPeerHandler(p peer.ID) {
 	delete(pm.peers, p)
 }
 
-func (mq *msgQueue) runQueueSub(ctx context.Context) {
+func (mq *msgQueue) runQueuePub(ctx context.Context) {
 	for {
 		select {
 		case <-mq.work: // there is work to be done
-            mq.doWorkSub(ctx)
+            mq.doWorkPub(ctx)
 		case <-mq.done:
 			return
 		case <-ctx.Done():
@@ -156,7 +156,7 @@ func (mq *msgQueue) runQueueSub(ctx context.Context) {
 	}
 }
 
-func (mq *msgQueue) doWorkSub(ctx context.Context) {
+func (mq *msgQueue) doWorkPub(ctx context.Context) {
 	// allow ten minutes for connections
 	// this includes looking them up in the dht
 	// dialing them, and handshaking
@@ -183,7 +183,7 @@ func (mq *msgQueue) doWorkSub(ctx context.Context) {
 	sendctx, cancel := context.WithTimeout(ctx, time.Minute*5)
 	defer cancel()
 
-	// send sublist updates
+	// send publist updates
 	err = mq.network.SendMessage(sendctx, mq.p, wlm)
 	if err != nil {
 		log.Infof("bitswap send error: %s", err)
@@ -192,14 +192,14 @@ func (mq *msgQueue) doWorkSub(ctx context.Context) {
 	}
 }
 
-func (pm *SubManager) Connected(p peer.ID) {
+func (pm *PubManager) Connected(p peer.ID) {
 	select {
 	case pm.connect <- p:
 	case <-pm.ctx.Done():
 	}
 }
 
-func (pm *SubManager) Disconnected(p peer.ID) {
+func (pm *PubManager) Disconnected(p peer.ID) {
 	select {
 	case pm.disconnect <- p:
 	case <-pm.ctx.Done():
@@ -207,42 +207,42 @@ func (pm *SubManager) Disconnected(p peer.ID) {
 }
 
 // TODO: use goprocess here once i trust it
-func (pm *SubManager) Run() {
+func (pm *PubManager) Run() {
 	tock := time.NewTicker(rebroadcastDelay.Get())
 	defer tock.Stop()
 	for {
 		select {
 		case entries := <-pm.incoming:
 
-			// add changes to our sublist
+			// add changes to our publist
 			for _, e := range entries {
 				if e.Cancel {
-                    pm.sl.Remove(e.Topic)
+					pm.pl.Remove(e.Pub)
 				} else {
-fmt.Printf("SUB-2 %v\n", e);
-                    pm.sl.Add(e.Topic, e.Priority)
+fmt.Printf("PUB-2 %v\n", e);
+					pm.pl.Add(e.Pub, e.Priority)
 				}
 			}
 
-			// broadcast those sublist changes
-fmt.Printf("SUB-PEERS-2 %v\n", entries);
+			// broadcast those publist changes
+fmt.Printf("PUB-PEERS-2 %v\n", entries);
 			for k, p := range pm.peers {
 fmt.Printf("\t %v\n", k.Pretty());
-                p.addMessageSub(entries)
+                p.addMessagePub(entries)
 			}
 
 		case <-tock.C:
-			// resend entire sublist every so often (REALLY SHOULDNT BE NECESSARY)
-            var es []*bsmsg.EntrySub
-			for _, e := range pm.sl.Entries() {
-                es = append(es, &bsmsg.EntrySub{Entry: e})
+			// resend entire publist every so often (REALLY SHOULDNT BE NECESSARY)
+            var es []*bsmsg.EntryPub
+			for _, e := range pm.pl.Entries() {
+                es = append(es, &bsmsg.EntryPub{Entry: e})
 			}
 			for _, p := range pm.peers {
 				p.outlk.Lock()
 				p.out = bsmsg.New(true)
 				p.outlk.Unlock()
 
-                p.addMessageSub(es)
+                p.addMessagePub(es)
 			}
 		case p := <-pm.connect:
 			pm.startPeerHandler(p)
@@ -254,7 +254,7 @@ fmt.Printf("\t %v\n", k.Pretty());
 	}
 }
 
-func (wm *SubManager) newMsgQueue(p peer.ID) *msgQueue {
+func (wm *PubManager) newMsgQueue(p peer.ID) *msgQueue {
 	mq := new(msgQueue)
 	mq.done = make(chan struct{})
 	mq.work = make(chan struct{}, 1)
@@ -265,7 +265,7 @@ func (wm *SubManager) newMsgQueue(p peer.ID) *msgQueue {
 	return mq
 }
 
-func (mq *msgQueue) addMessageSub(entries []*bsmsg.EntrySub) {
+func (mq *msgQueue) addMessagePub(entries []*bsmsg.EntryPub) {
     mq.outlk.Lock()
     defer func() {
 		mq.outlk.Unlock()
@@ -281,14 +281,14 @@ func (mq *msgQueue) addMessageSub(entries []*bsmsg.EntrySub) {
 		mq.out = bsmsg.New(false)
 	}
 
-    // TODO: add a msg.Combine(...) method
+	// TODO: add a msg.Combine(...) method
 	// otherwise, combine the one we are holding with the
 	// one passed in
 	for _, e := range entries {
 		if e.Cancel {
-            mq.out.CancelSub(e.Topic)
+			mq.out.CancelPub(e.Pub)
 		} else {
-            mq.out.AddEntrySub(e.Topic, e.Priority)
+			mq.out.AddEntryPub(e.Pub, e.Priority)
 		}
 	}
 }

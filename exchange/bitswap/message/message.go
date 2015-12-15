@@ -9,6 +9,7 @@ import (
 	pb "github.com/ipfs/go-ipfs/exchange/bitswap/message/pb"
 	wantlist "github.com/ipfs/go-ipfs/exchange/bitswap/wantlist"
 	sublist "github.com/ipfs/go-ipfs/exchange/bitswap/sublist"
+	publist "github.com/ipfs/go-ipfs/exchange/bitswap/publist"
 	inet "github.com/ipfs/go-ipfs/p2p/net"
 
 	ggio "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/gogo/protobuf/io"
@@ -26,6 +27,10 @@ type BitSwapMessage interface {
 	// Sublist returns a slice of unique keys that represent data subscribed by
 	// the sender.
 	Sublist() []EntrySub
+
+	// Sublist returns a slice of unique keys that represent data subscribed by
+	// the sender.
+	Publist() []EntryPub
 
 	// Blocks returns a slice of unique blocks
 	Blocks() []*blocks.Block
@@ -45,6 +50,11 @@ type BitSwapMessage interface {
 
 	CancelSub(key sublist.Topic)
 
+	// AddPub adds an entry to the Publist.
+	AddEntryPub(key publist.Pub, priority int)
+
+	CancelPub(key publist.Pub)
+
 	AddBlock(*blocks.Block)
 	Exportable
 
@@ -60,6 +70,7 @@ type impl struct {
 	full     bool
 	wantlist map[key.Key]Entry
 	sublist  map[sublist.Topic]EntrySub
+	publist  map[publist.Pub]EntryPub
 	blocks   map[key.Key]*blocks.Block
 }
 
@@ -72,6 +83,7 @@ func newMsg(full bool) *impl {
 		blocks:   make(map[key.Key]*blocks.Block),
 		wantlist: make(map[key.Key]Entry),
 		sublist:  make(map[sublist.Topic]EntrySub),
+		publist:  make(map[publist.Pub]EntryPub),
 		full:     full,
 	}
 }
@@ -86,6 +98,11 @@ type EntrySub struct {
 	Cancel bool
 }
 
+type EntryPub struct {
+	publist.Entry
+	Cancel bool
+}
+
 func newMessageFromProto(pbm pb.Message) BitSwapMessage {
 	m := newMsg(pbm.GetWantlist().GetFull())
 	for _, e := range pbm.GetWantlist().GetEntries() {
@@ -94,6 +111,9 @@ func newMessageFromProto(pbm pb.Message) BitSwapMessage {
 	//m = newMsg(pbm.GetSublist().GetFull())
 	for _, e := range pbm.GetSublist().GetEntries() {
 		m.addEntrySub(sublist.Topic(e.GetTopic()), int(e.GetPriority()), e.GetCancel())
+	}
+	for _, e := range pbm.GetPublist().GetEntries() {
+		m.addEntryPub(publist.Pub(publist.Pub{sublist.Topic(e.GetTopic()),key.Key(e.GetValue())}), int(e.GetPriority()), e.GetCancel())
 	}
 	for _, d := range pbm.GetBlocks() {
 		b := blocks.NewBlock(d)
@@ -107,7 +127,7 @@ func (m *impl) Full() bool {
 }
 
 func (m *impl) Empty() bool {
-	return len(m.blocks) == 0 && len(m.wantlist) == 0 && len(m.sublist) == 0
+	return len(m.blocks) == 0 && len(m.wantlist) == 0 && len(m.sublist) == 0 && len(m.publist) == 0
 }
 
 func (m *impl) Wantlist() []Entry {
@@ -121,6 +141,14 @@ func (m *impl) Wantlist() []Entry {
 func (m *impl) Sublist() []EntrySub {
 	var out []EntrySub
 	for _, e := range m.sublist {
+		out = append(out, e)
+	}
+	return out
+}
+
+func (m *impl) Publist() []EntryPub {
+	var out []EntryPub
+	for _, e := range m.publist {
 		out = append(out, e)
 	}
 	return out
@@ -174,10 +202,36 @@ func (m *impl) addEntrySub(k sublist.Topic, priority int, cancel bool) {
 		e.Priority = priority
 		e.Cancel = cancel
 	} else {
-fmt.Printf("ADD-4 %v %v\n", k, cancel);
+fmt.Printf("SUB-4 %v %v\n", k, cancel);
 		m.sublist[k] = EntrySub{
 			Entry: sublist.Entry{
 				Topic:    k,
+				Priority: priority,
+			},
+			Cancel: cancel,
+		}
+	}
+}
+
+func (m *impl) CancelPub(k publist.Pub) {
+	delete(m.publist, k)
+	m.addEntryPub(k, 0, true)
+}
+
+func (m *impl) AddEntryPub(k publist.Pub, priority int) {
+	m.addEntryPub(k, priority, false)
+}
+
+func (m *impl) addEntryPub(k publist.Pub, priority int, cancel bool) {
+	e, exists := m.publist[k]
+	if exists {
+		e.Priority = priority
+		e.Cancel = cancel
+	} else {
+fmt.Printf("PUB-4 %v %v\n", k, cancel);
+		m.publist[k] = EntryPub{
+			Entry: publist.Entry{
+				Pub:      k,
 				Priority: priority,
 			},
 			Cancel: cancel,
@@ -219,6 +273,15 @@ func (m *impl) ToProto() *pb.Message {
 			Cancel:   proto.Bool(e.Cancel),
 		})
 	}
+	pbm.Publist = new(pb.Message_Publist)
+	for _, e := range m.publist {
+		pbm.Publist.Entries = append(pbm.Publist.Entries, &pb.Message_Publist_Entry{
+			Topic:    proto.String(string(e.Pub.Topic)),
+			Value:    proto.String(string(e.Pub.Value)),
+			Priority: proto.Int32(int32(e.Priority)),
+			Cancel:   proto.Bool(e.Cancel),
+		})
+	}
 	for _, b := range m.Blocks() {
 		pbm.Blocks = append(pbm.Blocks, b.Data)
 	}
@@ -243,5 +306,6 @@ func (m *impl) Loggable() map[string]interface{} {
 		"blocks": blocks,
 		"wants":  m.Wantlist(),
 		"subs":   m.Sublist(),
+		"pubs":   m.Publist(),
 	}
 }

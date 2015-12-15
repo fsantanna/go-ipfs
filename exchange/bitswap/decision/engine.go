@@ -2,7 +2,7 @@
 package decision
 
 import (
-    "fmt"
+	"fmt"
 	"sync"
 
 	context "github.com/ipfs/go-ipfs/Godeps/_workspace/src/golang.org/x/net/context"
@@ -11,6 +11,7 @@ import (
 	bsmsg "github.com/ipfs/go-ipfs/exchange/bitswap/message"
 	wl "github.com/ipfs/go-ipfs/exchange/bitswap/wantlist"
 	sl "github.com/ipfs/go-ipfs/exchange/bitswap/sublist"
+	pl "github.com/ipfs/go-ipfs/exchange/bitswap/publist"
 	peer "github.com/ipfs/go-ipfs/p2p/peer"
 	logging "github.com/ipfs/go-ipfs/vendor/QmQg1J6vikuXF9oDvm4wpdeAUvvkVEKW1EYDw9HhTMnP2b/go-log"
 )
@@ -245,7 +246,25 @@ func (e *Engine) MessageReceived(p peer.ID, m bsmsg.BitSwapMessage) error {
 		} else {
 			log.Debugf("subs %s - %d", entry.Topic, entry.Priority)
 			l.Subs(entry.Topic, entry.Priority)
-fmt.Printf("[%v] WANTS %v\n", p.Pretty(), entry.Topic)
+fmt.Printf("[%v] SUBS %v\n", p.Pretty(), entry.Topic)
+// TODO(chico)
+			//if exists, err := e.bs.Has(entry.Topic); err == nil && exists {
+				//e.peerRequestQueue.Push(entry.Entry, p)
+				//newWorkExists = true
+			//}
+		}
+	}
+
+	for _, entry := range m.Publist() {
+		if entry.Cancel {
+			log.Debugf("cancel %s", entry.Pub)
+			l.CancelPub(entry.Pub)
+// TODO(chico)
+			//e.peerRequestQueue.Remove(entry.Topic, p)
+		} else {
+			log.Debugf("pubs %s - %d", entry.Pub, entry.Priority)
+			l.Pubs(entry.Pub, entry.Priority)
+fmt.Printf("[%v] PUBS %v\n", p.Pretty(), entry.Pub)
 // TODO(chico)
 			//if exists, err := e.bs.Has(entry.Topic); err == nil && exists {
 				//e.peerRequestQueue.Push(entry.Entry, p)
@@ -265,6 +284,18 @@ fmt.Printf("[%v] WANTS %v\n", p.Pretty(), entry.Topic)
 		}
 	}
 	return nil
+}
+
+func (e *Engine) Pub(pub pl.Pub) {
+	for _, p := range e.Peers() {
+		fmt.Printf("PEER %s\n", p.Pretty())
+		for _,sub := range(e.SublistForPeer(p)) {
+			fmt.Printf("\t%v vs %v\n", pub, sub)
+			if pub.Topic == sub.Topic {
+				fmt.Printf("\t\t OK!\n")
+	}
+		}
+	}
 }
 
 // TODO add contents of m.WantList() to my local wantlist? NB: could introduce
