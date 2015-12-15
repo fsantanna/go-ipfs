@@ -13,17 +13,19 @@ It has these top-level messages:
 */
 package bitswap_message_pb
 
-import proto "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/gogo/protobuf/proto"
+import proto "github.com/gogo/protobuf/proto"
+import fmt "fmt"
 import math "math"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
+var _ = fmt.Errorf
 var _ = math.Inf
 
 type Message struct {
 	Wantlist         *Message_Wantlist `protobuf:"bytes,1,opt,name=wantlist" json:"wantlist,omitempty"`
-	Sublist          *Message_Sublist  `protobuf:"bytes,1,opt,name=sublist" json:"sublist,omitempty"`
-	Blocks           [][]byte          `protobuf:"bytes,2,rep,name=blocks" json:"blocks,omitempty"`
+	Sublist          *Message_Sublist  `protobuf:"bytes,2,opt,name=sublist" json:"sublist,omitempty"`
+	Blocks           [][]byte          `protobuf:"bytes,4,rep,name=blocks" json:"blocks,omitempty"`
 	XXX_unrecognized []byte            `json:"-"`
 }
 
@@ -133,7 +135,7 @@ func (m *Message_Sublist) GetFull() bool {
 }
 
 type Message_Sublist_Entry struct {
-	Topic            *string `protobuf:"bytes,1,opt,name=block" json:"block,omitempty"`
+	Topic            *string `protobuf:"bytes,1,opt,name=topic" json:"topic,omitempty"`
 	Priority         *int32  `protobuf:"varint,2,opt,name=priority" json:"priority,omitempty"`
 	Cancel           *bool   `protobuf:"varint,3,opt,name=cancel" json:"cancel,omitempty"`
 	XXX_unrecognized []byte  `json:"-"`
@@ -165,4 +167,9 @@ func (m *Message_Sublist_Entry) GetCancel() bool {
 }
 
 func init() {
+	proto.RegisterType((*Message)(nil), "bitswap.message.pb.Message")
+	proto.RegisterType((*Message_Wantlist)(nil), "bitswap.message.pb.Message.Wantlist")
+	proto.RegisterType((*Message_Wantlist_Entry)(nil), "bitswap.message.pb.Message.Wantlist.Entry")
+	proto.RegisterType((*Message_Sublist)(nil), "bitswap.message.pb.Message.Sublist")
+	proto.RegisterType((*Message_Sublist_Entry)(nil), "bitswap.message.pb.Message.Sublist.Entry")
 }

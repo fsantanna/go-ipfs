@@ -17,16 +17,16 @@ message Message {
   message Sublist {
 
     message Entry {
-      optional string block = 1; // the block key
+      optional string topic = 1; // the topic string
       optional int32 priority = 2; // the priority (normalized). default to 1
       optional bool cancel = 3;  // whether this revokes an entry
     }
 
-    repeated Entry entries = 1; // a list of wantlist entries
-    optional bool full = 2;     // whether this is the full wantlist. default to false
+    repeated Entry entries = 1; // a list of sublist entries
+    optional bool full = 2;     // whether this is the full sublist. default to false
   }
 
   optional Wantlist wantlist = 1;
   optional Sublist sublist = 2;
-  repeated bytes blocks = 3;
+  repeated bytes blocks = 4;
 }
