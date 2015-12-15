@@ -2,6 +2,9 @@ package commands
 
 import (
 	"fmt"
+	"bytes"
+	"io"
+	"reflect"
 	cmds "github.com/ipfs/go-ipfs/commands"
 	key "github.com/ipfs/go-ipfs/blocks/key"
 	bitswap "github.com/ipfs/go-ipfs/exchange/bitswap"
@@ -19,6 +22,33 @@ TODO.
 
 	Arguments: []cmds.Argument{
 		cmds.StringArg("key", true, true, "keys to subscribe").EnableStdin(),
+	},
+	Marshalers: cmds.MarshalerMap{
+		cmds.Text: func(res cmds.Response) (io.Reader, error) {
+			outChan, ok := res.Output().(<-chan interface{})
+			if !ok {
+				fmt.Println(reflect.TypeOf(res.Output()))
+				return nil, u.ErrCast()
+			}
+
+			marshal := func(v interface{}) (io.Reader, error) {
+				fmt.Println(reflect.TypeOf(v))
+				obj, ok := v.(string)
+				if !ok {
+					return nil, u.ErrCast()
+				}
+
+				buf := new(bytes.Buffer)
+				fmt.Fprintf(buf, "%s\n", obj)
+				return buf, nil
+			}
+
+			return &cmds.ChannelMarshaler{
+				Channel:   outChan,
+				Marshaler: marshal,
+				Res:       res,
+			}, nil
+		},
 	},
 	Run: func(req cmds.Request, res cmds.Response) {
 		nd, err := req.InvocContext().GetNode()
@@ -41,16 +71,20 @@ TODO.
 		ts := []sublist.Topic{}
 		for i, arg := range req.Arguments() {
 			topic := sublist.Topic(arg)
-fmt.Printf("SUB %v => %v, %v\n", i, arg, topic)
 			ts = append(ts, topic)
 		}
 
-		keys := make(chan key.Key)
-		defer close(keys)
-		bs.SubTopics(ts, keys)
+		outChan := make(chan interface{})
+		res.SetOutput((<-chan interface{})(outChan))
 
-		for key := range keys {
-			fmt.Printf(">>> %v\n", key)
-		}
+		go func() {
+			defer close(outChan)
+			keys := make(chan key.Key)
+			bs.SubTopics(ts, keys)
+
+			for key := range keys {
+				outChan <- &key
+			}
+		}()
 	},
 }
