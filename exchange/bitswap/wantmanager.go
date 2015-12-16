@@ -10,6 +10,7 @@ import (
 	engine "github.com/ipfs/go-ipfs/exchange/bitswap/decision"
 	bsmsg "github.com/ipfs/go-ipfs/exchange/bitswap/message"
 	bsnet "github.com/ipfs/go-ipfs/exchange/bitswap/network"
+	decision "github.com/ipfs/go-ipfs/exchange/bitswap/decision"
 	wantlist "github.com/ipfs/go-ipfs/exchange/bitswap/wantlist"
 	peer "github.com/ipfs/go-ipfs/p2p/peer"
 )
@@ -205,9 +206,10 @@ func (pm *WantManager) Disconnected(p peer.ID) {
 }
 
 // TODO: use goprocess here once i trust it
-func (pm *WantManager) Run() {
+func (pm *WantManager) Run(e *decision.Engine) {
 	tock := time.NewTicker(rebroadcastDelay.Get())
 	defer tock.Stop()
+
 	for {
 		select {
 		case entries := <-pm.incoming:
@@ -222,19 +224,26 @@ func (pm *WantManager) Run() {
 			}
 
 			// broadcast those wantlist changes
-fmt.Printf("PEERS-X %v\n", entries);
-			for k, p := range pm.peers {
-fmt.Printf("\t %v\n", k.Pretty());
+			for _, p := range pm.peers {
 				p.addMessage(entries)
 			}
 
 		case <-tock.C:
 			// resend entire wantlist every so often (REALLY SHOULDNT BE NECESSARY)
 			var es []*bsmsg.Entry
+fmt.Printf("==============\n");
+fmt.Printf("ITEMS:\n");
 			for _, e := range pm.wl.Entries() {
+fmt.Printf("\t %v\n", e.Key);
 				es = append(es, &bsmsg.Entry{Entry: e})
 			}
-			for _, p := range pm.peers {
+			for _, e := range e.WantlistForAllPeers() {
+fmt.Printf("\t %v\n", e.Key);
+				es = append(es, &bsmsg.Entry{Entry: e})
+			}
+fmt.Printf("PEERS:\n");
+			for k, p := range pm.peers {
+fmt.Printf("\t %v\n", k.Pretty());
 				p.outlk.Lock()
 				p.out = bsmsg.New(true)
 				p.outlk.Unlock()

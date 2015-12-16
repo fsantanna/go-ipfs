@@ -114,6 +114,17 @@ func (e *Engine) WantlistForPeer(p peer.ID) (out []wl.Entry) {
 	return out
 }
 
+func (e *Engine) WantlistForAllPeers() (out []wl.Entry) {
+	e.lock.Lock()
+	for _,p := range(e.ledgerMap) {
+		for _,e := range(p.wantList.Entries()) {
+			out = append(out, e)
+		}
+	}
+	e.lock.Unlock()
+	return out
+}
+
 func (e *Engine) SublistForPeer(p peer.ID) (out []sl.Entry) {
 	e.lock.Lock()
 	partner, ok := e.ledgerMap[p]
@@ -233,6 +244,7 @@ func (e *Engine) MessageReceived(p peer.ID, m bsmsg.BitSwapMessage) error {
 		} else {
 			log.Debugf("wants %s - %d", entry.Key, entry.Priority)
 			l.Wants(entry.Key, entry.Priority)
+fmt.Printf("[%v] WANTS %v\n", p.Pretty(), entry.Key)
 			if exists, err := e.bs.Has(entry.Key); err == nil && exists {
 				e.peerRequestQueue.Push(entry.Entry, p)
 				newWorkExists = true

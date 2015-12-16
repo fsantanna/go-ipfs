@@ -92,7 +92,7 @@ func New(parent context.Context, p peer.ID, network bsnet.BitSwapNetwork,
 		engine:        decision.NewEngine(ctx, bstore, pub_channel), // TODO close the engine with Close() method
 
 	}
-	go bs.wm.Run()
+	go bs.wm.Run(bs.engine)
 	go bs.sm.Run()
 	go bs.pm.Run()
 	go bs.pubSub()
