@@ -125,11 +125,12 @@ func (e *Engine) WantlistForAllPeers() (out []wl.Entry) {
 	return out
 }
 
-func (e *Engine) SublistForPeer(p peer.ID) (out []sl.Entry) {
+func (e *Engine) PublistForAllPeers() (out []pl.Entry) {
 	e.lock.Lock()
-	partner, ok := e.ledgerMap[p]
-	if ok {
-		out = partner.subList.SortedEntries()
+	for _,p := range(e.ledgerMap) {
+		for _,e := range(p.pubList.Entries()) {
+			out = append(out, e)
+		}
 	}
 	e.lock.Unlock()
 	return out
@@ -301,20 +302,6 @@ fmt.Printf("[%v] PUBS %v/%v\n", p.Pretty(), entry.Pub, entry.Pub.Value)
 	}
 	return nil
 }
-
-/*
-func (e *Engine) Pub(pub pl.Pub) {
-	for _, p := range e.Peers() {
-		fmt.Printf("PEER %s\n", p.Pretty())
-		for _,sub := range(e.SublistForPeer(p)) {
-			fmt.Printf("\t%v vs %v\n", pub, sub)
-			if pub.Topic == sub.Topic {
-				fmt.Printf("\t\t OK!\n")
-			}
-		}
-	}
-}
-*/
 
 // TODO add contents of m.WantList() to my local wantlist? NB: could introduce
 // race conditions where I send a message, but MessageSent gets handled after

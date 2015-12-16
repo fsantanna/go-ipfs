@@ -94,7 +94,7 @@ func New(parent context.Context, p peer.ID, network bsnet.BitSwapNetwork,
 	}
 	go bs.wm.Run(bs.engine)
 	go bs.sm.Run()
-	go bs.pm.Run()
+	go bs.pm.Run(bs.engine)
 	go bs.pubSub()
 	network.SetDelegate(bs)
 
@@ -204,14 +204,6 @@ func (bs *Bitswap) WantlistForPeer(p peer.ID) []key.Key {
 	var out []key.Key
 	for _, e := range bs.engine.WantlistForPeer(p) {
 		out = append(out, e.Key)
-	}
-	return out
-}
-
-func (bs *Bitswap) SublistForPeer(p peer.ID) []sublist.Topic {
-	var out []sublist.Topic
-	for _, e := range bs.engine.SublistForPeer(p) {
-		out = append(out, e.Topic)
 	}
 	return out
 }

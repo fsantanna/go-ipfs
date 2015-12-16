@@ -9,6 +9,7 @@ import (
 	engine "github.com/ipfs/go-ipfs/exchange/bitswap/decision"
 	bsmsg "github.com/ipfs/go-ipfs/exchange/bitswap/message"
 	bsnet "github.com/ipfs/go-ipfs/exchange/bitswap/network"
+	decision "github.com/ipfs/go-ipfs/exchange/bitswap/decision"
 	publist "github.com/ipfs/go-ipfs/exchange/bitswap/publist"
 	peer "github.com/ipfs/go-ipfs/p2p/peer"
 )
@@ -207,7 +208,7 @@ func (pm *PubManager) Disconnected(p peer.ID) {
 }
 
 // TODO: use goprocess here once i trust it
-func (pm *PubManager) Run() {
+func (pm *PubManager) Run(e *decision.Engine) {
 	tock := time.NewTicker(rebroadcastDelay.Get())
 	defer tock.Stop()
 	for {
@@ -219,25 +220,31 @@ func (pm *PubManager) Run() {
 				if e.Cancel {
 					pm.pl.Remove(e.Pub)
 				} else {
-fmt.Printf("PUB-2 %v\n", e);
 					pm.pl.Add(e.Pub, e.Priority)
 				}
 			}
 
 			// broadcast those publist changes
-fmt.Printf("PUB-PEERS-2 %v\n", entries);
-			for k, p := range pm.peers {
-fmt.Printf("\t %v\n", k.Pretty());
-                p.addMessagePub(entries)
+			for _, p := range pm.peers {
+				p.addMessagePub(entries)
 			}
 
 		case <-tock.C:
 			// resend entire publist every so often (REALLY SHOULDNT BE NECESSARY)
             var es []*bsmsg.EntryPub
+fmt.Printf("==============\n");
+fmt.Printf("ITEMS:\n");
 			for _, e := range pm.pl.Entries() {
+fmt.Printf("\t %v %v\n", e.Pub.Topic, e.Pub.Value);
                 es = append(es, &bsmsg.EntryPub{Entry: e})
 			}
-			for _, p := range pm.peers {
+			for _, e := range e.PublistForAllPeers() {
+fmt.Printf("\t %v %v\n", e.Pub.Topic, e.Pub.Value);
+				es = append(es, &bsmsg.EntryPub{Entry: e})
+			}
+fmt.Printf("PEERS:\n");
+			for k, p := range pm.peers {
+fmt.Printf("\t %v\n", k.Pretty());
 				p.outlk.Lock()
 				p.out = bsmsg.New(true)
 				p.outlk.Unlock()
