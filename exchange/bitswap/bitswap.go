@@ -223,11 +223,25 @@ func (bs *Bitswap) SubTopics(ks []sublist.Topic, channel chan key.Key) {
 	}
 }
 
+// Send returns true if it was able to send t on channel c.
+// It returns false if c is closed.
+/*
+func send(c chan key.Key, v key.Key) (ok bool) {
+	defer func() {recover()}()
+	c <- v
+	return true
+}
+*/
+
 func (bs *Bitswap) pubSub() {
 	for pub := range bs.pub_channel {
+		val := pub.Value
 		for sub_channel, topic := range bs.sub_channels {
 			if pub.Topic == topic {
-				sub_channel <-pub.Value
+				// TODO(chico): might block "pubSub" if closed or blocked
+				go func () {
+					sub_channel <-val
+				}()
 			}
 		}
 	}
