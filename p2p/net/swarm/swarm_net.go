@@ -1,6 +1,8 @@
 package swarm
 
 import (
+	globals "github.com/ipfs/go-ipfs/globals"
+	"errors"
 	"fmt"
 
 	peer "github.com/ipfs/go-ipfs/p2p/peer"
@@ -33,6 +35,10 @@ func NewNetwork(ctx context.Context, listen []ma.Multiaddr, local peer.ID,
 // DialPeer attempts to establish a connection to a given peer.
 // Respects the context.
 func (n *Network) DialPeer(ctx context.Context, p peer.ID) (inet.Conn, error) {
+	if globals.Has_Bootstrapped {
+		return nil, errors.New("XXX")
+	}
+
 	log.Debugf("[%s] network dialing peer [%s]", n.local, p)
 	sc, err := n.Swarm().Dial(ctx, p)
 	if err != nil {

@@ -1,6 +1,7 @@
 package core
 
 import (
+	globals "github.com/ipfs/go-ipfs/globals"
 	"errors"
 	"fmt"
 	"io"
@@ -185,6 +186,9 @@ func bootstrapConnect(ctx context.Context, ph host.Host, peers []peer.PeerInfo) 
 		}(p)
 	}
 	wg.Wait()
+
+	time.Sleep(5 * time.Second)
+	globals.Has_Bootstrapped = true
 
 	// our failure condition is when no connection attempt succeeded.
 	// So drain the errs channel, counting the results.
