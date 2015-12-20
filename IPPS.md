@@ -1,6 +1,6 @@
 # IPPS: Pub/Sub functionality for IPFS
 
-Definition for *publish-subscribe pattern* from Wikipedia:
+Definition for the *Publish-Subscribe Pattern* from Wikipedia:
 
 > In software architecture, *publish–subscribe* is a messaging pattern where 
 > senders of messages, called publishers, do not program the messages to be 
@@ -47,28 +47,28 @@ Also, subscribers may continually receive duplicates.
 
 ### Hello World!
 
-Alice at `host-1` wants to publish the message `Hello World!` to all 
+Alice at `HOST1` wants to publish the message `Hello World!` to all 
 subscribers of the topic `cool-channel`.
 
-First, Alice adds the message with `ipfs add` and acquire the corresponding 
+First, Alice adds the message with `ipfs add` and acquires the corresponding 
 path:
 
 ```
-alice@host-1$ echo "Hello World!" | ipfs add
+alice@HOST1$ echo "Hello World!" | ipfs add
 added QmfM2r8seH2GiRaC4esTjeraXEachRt8ZsSeGaWTPLyMoG QmfM2r8seH2GiRaC4esTjeraXEachRt8ZsSeGaWTPLyMoG
 ```
 
 Then, Alice publishes the path to `cool-channel`:
 
 ```
-alice@host-1$ ipfs pub cool-channel QmfM2r8seH2GiRaC4esTjeraXEachRt8ZsSeGaWTPLyMoG
+alice@HOST1$ ipfs pub cool-channel QmfM2r8seH2GiRaC4esTjeraXEachRt8ZsSeGaWTPLyMoG
 ```
 
-Bob, at `host-2`, wants to be notified about new files published to the topic 
+Bob, at `HOST2`, wants to be notified about new files published to the topic 
 `cool-channel`:
 
 ```
-bob@host-2$ ipfs sub cool-channel
+bob@HOST2$ ipfs sub cool-channel
 QmfM2r8seH2GiRaC4esTjeraXEachRt8ZsSeGaWTPLyMoG
 QmfM2r8seH2GiRaC4esTjeraXEachRt8ZsSeGaWTPLyMoG
 ...
@@ -79,14 +79,14 @@ the hash of the new file.
 Bob can avoid duplicate notifications as follows:
 
 ```
-bob@host-2$ ipfs sub cool-channel | awk '!a[$0]++'
+bob@HOST2$ ipfs sub cool-channel | awk '!a[$0]++'
 QmfM2r8seH2GiRaC4esTjeraXEachRt8ZsSeGaWTPLyMoG
 ```
 
 To read the contents of the submission, Bob uses `ipfs cat`:
 
 ```
-bob@host-2$ ipfs cat QmfM2r8seH2GiRaC4esTjeraXEachRt8ZsSeGaWTPLyMoG
+bob@HOST2$ ipfs cat QmfM2r8seH2GiRaC4esTjeraXEachRt8ZsSeGaWTPLyMoG
 Hello World!
 ```
 
@@ -97,10 +97,10 @@ through emails.
 They both subscribe to topics representing their mailboxes:
 
 ```
-alice@host-1$ ipfs sub alice-mailbox | awk '!a[$0]++'
+alice@HOST1$ ipfs sub alice-mailbox | awk '!a[$0]++'
 ...
 
-bob@host-2$ ipfs sub bob-mailbox | awk '!a[$0]++'
+bob@HOST2$ ipfs sub bob-mailbox | awk '!a[$0]++'
 ...
 ```
 
@@ -108,41 +108,41 @@ A conversation is a directory with certain predefined files, e.g., `from`,
 `to`, and `message`:
 
 ```
-alice@host-1$ mkdir to-bob
-alice@host-1$ echo Alice > to-bob/from
-alice@host-1$ echo Bob > to-bob/to
-alice@host-1$ echo -e "Hello Bob,\nTalk to me.\nAlice" > to-bob/message
+alice@HOST1$ mkdir to-bob
+alice@HOST1$ echo Alice > to-bob/from
+alice@HOST1$ echo Bob > to-bob/to
+alice@HOST1$ echo -e "Hello Bob,\nTalk to me.\nAlice" > to-bob/message
 ```
 
 Alice publishes the conversation to `bob-mailbox`:
 
 ```
-alice@host-1$ ipfs add -r to-bob/
+alice@HOST1$ ipfs add -r to-bob/
 added QmXFyfUEXXNY13e7W15nEMDkZyuS2UqkiKQBxc6DHdqPbH to-bob/from
 added QmYUTBNbN8wcEwGmoFQZhxKhnnRY6dZR32Fu5DvFGz3j2r to-bob/message
 added QmYckDL4bLcDUBDG2XLhcTWTQbJGnigUZpzCRRC2rzJthE to-bob/to
 added QmYJKvMFLyzbHYhxpLk2Xd6h8okoHNwmpLMBXu2gxqiRdp to-bob
-alice@host-1$ ipfs pub bob-mailbox QmYJKvMFLyzbHYhxpLk2Xd6h8okoHNwmpLMBXu2gxqiRdp
+alice@HOST1$ ipfs pub bob-mailbox QmYJKvMFLyzbHYhxpLk2Xd6h8okoHNwmpLMBXu2gxqiRdp
 ```
 
 Bob receives the notification:
 
 ```
-bob@host-2$ ipfs sub bob-mailbox | awk '!a[$0]++'
+bob@HOST2$ ipfs sub bob-mailbox | awk '!a[$0]++'
 QmYJKvMFLyzbHYhxpLk2Xd6h8okoHNwmpLMBXu2gxqiRdp
 ```
 
 Bob reads the message:
 
 ```
-bob@host-2$ ipfs get QmYJKvMFLyzbHYhxpLk2Xd6h8okoHNwmpLMBXu2gxqiRdp
+bob@HOST2$ ipfs get QmYJKvMFLyzbHYhxpLk2Xd6h8okoHNwmpLMBXu2gxqiRdp
 Saving file(s) to QmYJKvMFLyzbHYhxpLk2Xd6h8okoHNwmpLMBXu2gxqiRdp
 4.50 KB 0
-bob@host-2$ cat QmYJKvMFLyzbHYhxpLk2Xd6h8okoHNwmpLMBXu2gxqiRdp/from
+bob@HOST2$ cat QmYJKvMFLyzbHYhxpLk2Xd6h8okoHNwmpLMBXu2gxqiRdp/from
 Alice
-bob@host-2$ cat QmYJKvMFLyzbHYhxpLk2Xd6h8okoHNwmpLMBXu2gxqiRdp/to
+bob@HOST2$ cat QmYJKvMFLyzbHYhxpLk2Xd6h8okoHNwmpLMBXu2gxqiRdp/to
 Bob
-bob@host-2$ cat QmYJKvMFLyzbHYhxpLk2Xd6h8okoHNwmpLMBXu2gxqiRdp/message
+bob@HOST2$ cat QmYJKvMFLyzbHYhxpLk2Xd6h8okoHNwmpLMBXu2gxqiRdp/message
 Hello Bob,
 Talk to me.
 Alice
@@ -151,17 +151,17 @@ Alice
 Bob replies the message, referring to it in the `previous` directory:
 
 ```
-bob@host-2$ mkdir to-alice
-bob@host-2$ mv QmYJKvMFLyzbHYhxpLk2Xd6h8okoHNwmpLMBXu2gxqiRdp/ to-alice/previous/
-bob@host-2$ echo Bob > to-alice/from
-bob@host-2$ echo Alice > to-alice/to
-bob@host-2$ echo -e "Hello Alice,\nThanks for your message.\nBob" > to-alice/message
+bob@HOST2$ mkdir to-alice
+bob@HOST2$ mv QmYJKvMFLyzbHYhxpLk2Xd6h8okoHNwmpLMBXu2gxqiRdp/ to-alice/previous/
+bob@HOST2$ echo Bob > to-alice/from
+bob@HOST2$ echo Alice > to-alice/to
+bob@HOST2$ echo -e "Hello Alice,\nThanks for your message.\nBob" > to-alice/message
 ```
 
 Bob publishes the reply to `alice-mailbox`:
 
 ```
-bob@host-2$ ipfs add -r to-alice/
+bob@HOST2$ ipfs add -r to-alice/
 added QmYckDL4bLcDUBDG2XLhcTWTQbJGnigUZpzCRRC2rzJthE to-alice/from
 added QmPM2AcPzodjy8ViRSahVPv84WLqfFGzW9SmtWFqeaNMQf to-alice/message
 added QmXFyfUEXXNY13e7W15nEMDkZyuS2UqkiKQBxc6DHdqPbH to-alice/previous/from
@@ -170,27 +170,27 @@ added QmYckDL4bLcDUBDG2XLhcTWTQbJGnigUZpzCRRC2rzJthE to-alice/previous/to
 added QmYJKvMFLyzbHYhxpLk2Xd6h8okoHNwmpLMBXu2gxqiRdp to-alice/previous
 added QmXFyfUEXXNY13e7W15nEMDkZyuS2UqkiKQBxc6DHdqPbH to-alice/to
 added QmQHioEDdCc6G4G4XsAUs2a2Uq6euuzAhf9Ym2bGHfFL2a to-alice
-bob@host-2$ ipfs pub alice-mailbox QmQHioEDdCc6G4G4XsAUs2a2Uq6euuzAhf9Ym2bGHfFL2a
+bob@HOST2$ ipfs pub alice-mailbox QmQHioEDdCc6G4G4XsAUs2a2Uq6euuzAhf9Ym2bGHfFL2a
 ```
 
 Alice receives the notification:
 
 ```
-alice@host-1$ ipfs sub alice-mailbox | awk '!a[$0]++'
+alice@HOST1$ ipfs sub alice-mailbox | awk '!a[$0]++'
 QmQHioEDdCc6G4G4XsAUs2a2Uq6euuzAhf9Ym2bGHfFL2a
 ```
 
 Alice reads the reply, also re-reading its original message:
 
 ```
-alice@host-1$ ipfs get QmQHioEDdCc6G4G4XsAUs2a2Uq6euuzAhf9Ym2bGHfFL2a
+alice@HOST1$ ipfs get QmQHioEDdCc6G4G4XsAUs2a2Uq6euuzAhf9Ym2bGHfFL2a
 Saving file(s) to QmQHioEDdCc6G4G4XsAUs2a2Uq6euuzAhf9Ym2bGHfFL2a
 8.00 KB 0
-alice@host-1$ cat QmQHioEDdCc6G4G4XsAUs2a2Uq6euuzAhf9Ym2bGHfFL2a/message
+alice@HOST1$ cat QmQHioEDdCc6G4G4XsAUs2a2Uq6euuzAhf9Ym2bGHfFL2a/message
 Hello Alice,
 Thanks for your message.
 Bob
-alice@host-1$ cat QmQHioEDdCc6G4G4XsAUs2a2Uq6euuzAhf9Ym2bGHfFL2a/previous/message
+alice@HOST1$ cat QmQHioEDdCc6G4G4XsAUs2a2Uq6euuzAhf9Ym2bGHfFL2a/previous/message
 Hello Bob,
 Talk to me.
 Alice
