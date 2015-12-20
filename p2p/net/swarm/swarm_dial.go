@@ -1,6 +1,7 @@
 package swarm
 
 import (
+	globals "github.com/ipfs/go-ipfs/globals"
 	"bytes"
 	"errors"
 	"fmt"
@@ -305,6 +306,10 @@ func (s *Swarm) gatedDialAttempt(ctx context.Context, p peer.ID) (*Conn, error) 
 
 // dial is the actual swarm's dial logic, gated by Dial.
 func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
+	if globals.Has_Bootstrapped {
+		return nil, errors.New("dial after globals.Has_Bootstrapped")
+	}
+
 	var logdial = lgbl.Dial("swarm", s.LocalPeer(), p, nil, nil)
 	if p == s.local {
 		log.Event(ctx, "swarmDialDoDialSelf", logdial)
