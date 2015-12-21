@@ -10,7 +10,7 @@ The *Publish-Subscribe Pattern*:
 > one or more classes and only receive messages that are of interest, without 
 > knowledge of which publishers, if any, there are.
 
-(Definition from Wikipedia.)
+([Definition](https://en.wikipedia.org/wiki/Publish%E2%80%93subscribe_pattern) from Wikipedia.)
 
 Currently, there is no *pub/sub* mechanism available for IPFS users because 
 there is no easy way to broadcast (or listen to) file submissions.
@@ -173,7 +173,7 @@ Talk to me.
 Alice
 ```
 
-Bob replies the message, keeping a *backlink* to the original message in the 
+Bob replies to the message, keeping a *backlink* to the original message in the 
 directory `previous`:
 
 ```
@@ -222,7 +222,7 @@ Talk to me.
 Alice
 ```
 
-Conversations can become private through public-key cryptography.
+Conversations can be made private through public-key cryptography.
 
 <!--
 ### A Simple Blockchain
@@ -241,12 +241,14 @@ We assume that publishers and subscribers do not know each other and are not
 directly connected in the peer-to-peer network.
 The figure in the right illustrates the general idea:
 
-1. Node keeps its list of subscribed topics, `sublist`, from calls to `ipfs sub`.
-2. Node keeps its list of published items, `publist`, from calls to `ipfs pub`.
-3. Node periodically broadcasts its `publist` to connected peers.
-4. Node appends received `publists` to its own `publist`.
-5. Whenever `sublist` has an intersection with `publist`, Node redirects it to 
-corresponding `ipfs sub`.
+1. A node keeps its list of subscribed topics, `sublist`, which changes from 
+calls to `ipfs sub`.
+2. A node keeps its list of published items, `publist`, which changes from 
+calls to `ipfs pub`.
+3. A node periodically broadcasts its `publist` to connected peers.
+4. A node appends received `publists` to its own `publist`.
+5. Whenever its `sublist` has an intersection with its `publist`, a node 
+redirects it to the corresponding `ipfs sub` command call.
 
 Eventually, all nodes receive all `publists` in the network.
 
@@ -286,7 +288,7 @@ $ ipfs init
 $ vi ~/.ipfs/config
 ```
 
-Change all ports in `Addresses` so that they do not conflict:
+Change all ports in `Addresses` so that they do not conflict among the users:
 
 ```
   "Addresses": {
@@ -299,7 +301,8 @@ Change all ports in `Addresses` so that they do not conflict:
   },
 ```
 
-Change the `Bootstrap` nodes to form the topology in the figure above:
+Change the `Bootstrap` nodes to form the topology described in the figure 
+above:
 
 ```
   "Bootstrap": [
@@ -323,8 +326,7 @@ Daemon is ready
 
 ### Source Code Walkthrough
 
-To see all changes and compare with the latest commit of the official 
-repository:
+Compare all changes against the latest commit of the official repository:
 
 ```
 $ git clone https://github.com/fsantanna/go-ipfs
@@ -337,8 +339,8 @@ Main changes:
 1. `core/bootstrap.go`,
    `p2p/net/swarm/swarm_dial.go`,
    `globals/globals.go`:
-After `5` seconds, set the global `Has_Bootstrapped` to force a static topology 
-during the execution, refusing to complete new connections.
+After `5` seconds, sets the global `Has_Bootstrapped` to force a static 
+topology during the execution, refusing to complete new connections.
 
 2. `exchange/bitswap/bitswap.go`,
    `exchange/bitswap/decision/engine.go`,
@@ -357,6 +359,7 @@ The `ipfs pub` and `ipfs sub` commands.
 
 `ipfs pub` calls `bitswap.PubPubs()` to append new `[topic,key]` pairs to the 
 node's `publist`.
+
 `ipfs sub` calls `bitswap.SubTopics()` to register a communication channel with 
 `bitswap.pubSub()` for notifications.
 
@@ -372,7 +375,7 @@ directly to one another.
   Given the similarities, can we make `publist` as scalable as `wantlist` 
   propagation?
 
-- Extra `sublist`:
+- `sublist` propagation:
   Instead of (or in addition to) propagating the `publist`, we could propagate 
   the `sublist`.
 
@@ -387,7 +390,7 @@ directly to one another.
   Avoid forwarding items already exchanged between peers.
 
 - Cooperation between peers:
-  Publishers have interest in their messages reaching their subscribers.
-  Subscribers have interest in the publishers messages.
-  The `ledger` could take this into account, but would require end-to-end 
+  A publisher has interest that its messages reach its subscribers.
+  A subscriber has interest that publishers messages reach itself.
+  The `ledger` could take these into account, but would require end-to-end 
   acknowledging.
