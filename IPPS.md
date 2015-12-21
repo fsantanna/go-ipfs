@@ -1,6 +1,6 @@
 # IPPS: Pub/Sub functionality for IPFS
 
-Definition for the *Publish-Subscribe Pattern* from Wikipedia:
+The *Publish-Subscribe Pattern*, definition from Wikipedia:
 
 > In software architecture, *publish–subscribe* is a messaging pattern where 
 > senders of messages, called publishers, do not program the messages to be 
@@ -10,15 +10,12 @@ Definition for the *Publish-Subscribe Pattern* from Wikipedia:
 > one or more classes and only receive messages that are of interest, without 
 > knowledge of which publishers, if any, there are.
 
-Currently, we cannot directly make use of *pub/sub* on top of IPFS because 
-there is no easy way, at the user level, to broadcast or listen to file 
-submissions.
+Currently, there is no *pub/sub* mechanism available for IPFS users because 
+there is no easy way to broadcast (or listen to) file submissions.
 IPFS is *pull-driven* and not *push-driven*, i.e., you cannot say to the world 
 "hey, look at this new cat picture".
-In contrast, clients need to request files explicitly.
 
-We propose (and implement) two new commands to enable *pub/sub* functionality 
-for IPFS:
+We propose (and implement) two new commands to provide *pub/sub* for IPFS:
 
 ```
 $ ipfs pub <topic-string> <ipfs-path>
@@ -39,9 +36,8 @@ The command `ipfs sub` reads as
 > Whenever someone broadcasts a new file to `<topic-string>`, output its 
 > `<ipfs-path>`.
 
-We employ best-effort delivery, with no guarantees that published files reach 
-all subscribers.
-Also, subscribers may continually receive duplicates.
+We employ best-effort delivery, with no guarantees that publishers reach their 
+subscribers.
 
 ## Examples
 
@@ -54,8 +50,8 @@ First, Alice adds the message with `ipfs add` and acquires the corresponding
 path:
 
 ```
-alice@HOST1$ echo "Hello World!" | ipfs add
-added QmfM2r8seH2GiRaC4esTjeraXEachRt8ZsSeGaWTPLyMoG QmfM2r8seH2GiRaC4esTjeraXEachRt8ZsSeGaWTPLyMoG
+alice@HOST1$ echo "Hello World!" | ipfs add -q
+QmfM2r8seH2GiRaC4esTjeraXEachRt8ZsSeGaWTPLyMoG
 ```
 
 Then, Alice publishes the path to `cool-channel`:
@@ -76,14 +72,16 @@ QmfM2r8seH2GiRaC4esTjeraXEachRt8ZsSeGaWTPLyMoG
 
 Every time someone publishes a new file to `cool-channel`, Bob is notified with 
 the hash of the new file.
+
 Bob can avoid duplicate notifications as follows:
 
 ```
 bob@HOST2$ ipfs sub cool-channel | awk '!a[$0]++'
 QmfM2r8seH2GiRaC4esTjeraXEachRt8ZsSeGaWTPLyMoG
+...
 ```
 
-To read the contents of the submission, Bob uses `ipfs cat`:
+To read the contents of the new submission, Bob then uses `ipfs cat`:
 
 ```
 bob@HOST2$ ipfs cat QmfM2r8seH2GiRaC4esTjeraXEachRt8ZsSeGaWTPLyMoG
@@ -94,7 +92,8 @@ Hello World!
 
 Alice and Bob want to exchange messages, similarly to how they already do 
 through emails.
-They both subscribe to topics representing their mailboxes:
+
+First, they both subscribe to topics representing their mailboxes:
 
 ```
 alice@HOST1$ ipfs sub alice-mailbox | awk '!a[$0]++'
@@ -104,8 +103,8 @@ bob@HOST2$ ipfs sub bob-mailbox | awk '!a[$0]++'
 ...
 ```
 
-A conversation is a directory with certain predefined files, e.g., `from`, 
-`to`, and `message`:
+A conversation is a directory defining a "protocol" with certain predefined 
+files, e.g., `from`, `to`, and `message`:
 
 ```
 alice@HOST1$ mkdir to-bob
@@ -148,7 +147,8 @@ Talk to me.
 Alice
 ```
 
-Bob replies the message, referring to it in the `previous` directory:
+Bob replies the message, keeping a *backlink* to the original message in the 
+directory `previous`:
 
 ```
 bob@HOST2$ mkdir to-alice
@@ -180,7 +180,7 @@ alice@HOST1$ ipfs sub alice-mailbox | awk '!a[$0]++'
 QmQHioEDdCc6G4G4XsAUs2a2Uq6euuzAhf9Ym2bGHfFL2a
 ```
 
-Alice reads the reply, also re-reading its original message:
+Alice reads the reply, also re-reading her original message:
 
 ```
 alice@HOST1$ ipfs get QmQHioEDdCc6G4G4XsAUs2a2Uq6euuzAhf9Ym2bGHfFL2a
