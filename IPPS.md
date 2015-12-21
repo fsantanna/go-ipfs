@@ -1,8 +1,8 @@
 # IPPS: Pub/Sub functionality for IPFS
 
-The *Publish-Subscribe Pattern*, definition from Wikipedia:
+The *Publish-Subscribe Pattern*:
 
-> In software architecture, *publish–subscribe* is a messaging pattern where 
+> In software architecture, *publish-subscribe* is a messaging pattern where 
 > senders of messages, called publishers, do not program the messages to be 
 > sent directly to specific receivers, called subscribers, but instead 
 > characterize published messages into classes without knowledge of which 
@@ -10,8 +10,11 @@ The *Publish-Subscribe Pattern*, definition from Wikipedia:
 > one or more classes and only receive messages that are of interest, without 
 > knowledge of which publishers, if any, there are.
 
+(Definition from Wikipedia.)
+
 Currently, there is no *pub/sub* mechanism available for IPFS users because 
 there is no easy way to broadcast (or listen to) file submissions.
+
 IPFS is *pull-driven* and not *push-driven*, i.e., you cannot say to the world 
 "hey, look at this new cat picture".
 
@@ -43,9 +46,10 @@ This is an exercise.
 Although we believe the proposed/desired API is powerful and generic for many 
 [applications](#examples), the proposed [implementation](#implementation) is 
 naive and does not scale.
-Therefore, the main question with this exercise is:
+Therefore, the goal with this exercise is to question its feasibility:
 
-> Is it possible to support a scalable `ipfs sub` and `ipfs pub` API?
+> Is it possible to provide a scalable `ipfs sub` and `ipfs pub` API for end 
+> users?
 
 ## Examples
 
@@ -220,9 +224,11 @@ Alice
 
 Conversations can become private through public-key cryptography.
 
+<!--
 ### A Simple Blockchain
 
 TBD.
+-->
 
 ## Implementation
 
@@ -251,6 +257,16 @@ Except for steps `1` and `5`, this behavior is similar to the one described for
 
 ### Testing
 
+Re-compile `ipfs`:
+
+```
+$ go get github.com/fsantanna/go-ipfs
+$ cd $GOPATH/src/github.com/fsantanna/go-ipfs/
+$ git checkout ipps
+$ make install
+$ which $GOPATH/bin/ipfs
+```
+
 Create three new users:
 
 ```
@@ -259,10 +275,10 @@ $ sudo adduser bob
 $ sudo adduser router
 ```
 
-The `router` servers as a node in between `alice` and `bob` (i.e., `HOST-X` in 
-the figure above) to assert that `publist` really propagates.
+The `router` user lies in between `alice` and `bob` (i.e., `HOST-X` in the 
+figure above) to assert that `publist` really propagates.
 
-Switch to each user, execute `ipfs init`, and edit `~/.ipfs/config`:
+Switch to each user at a time, execute `ipfs init`, and edit `~/.ipfs/config`:
 
 ```
 $ su - router
@@ -270,7 +286,7 @@ $ ipfs init
 $ vi ~/.ipfs/config
 ```
 
-Change all `ports` in `Addresses` so that they do not conflict:
+Change all ports in `Addresses` so that they do not conflict:
 
 ```
   "Addresses": {
@@ -305,70 +321,73 @@ Gateway (readonly) server listening on /ip4/127.0.0.1/tcp/8083
 Daemon is ready
 ```
 
-### Source Walkthrough
+### Source Code Walkthrough
 
-To see all changes comparing to the latest commit of the official repository:
+To see all changes and compare with the latest commit of the official 
+repository:
 
 ```
 $ git clone https://github.com/fsantanna/go-ipfs
-$ git checkout no-sublist
+$ git checkout no-sublist # commit with the main changes
 $ git difftool fbb607dc661bfe6dcac4e875a22ff96cccfb395c
 ```
 
 Main changes:
 
-1.
-2.
+1. `core/bootstrap.go`,
+   `p2p/net/swarm/swarm_dial.go`,
+   `globals/globals.go`:
+After `5` seconds, set the global `Has_Bootstrapped` to force a static topology 
+during the execution, refusing to complete new connections.
+
+2. `exchange/bitswap/bitswap.go`,
+   `exchange/bitswap/decision/engine.go`,
+   `exchange/bitswap/decision/ledger.go`,
+   `exchange/bitswap/message/message.go`,
+   `exchange/bitswap/message/pb/message.pb.go`,
+   `exchange/bitswap/message/pb/message.proto`,
+   `exchange/bitswap/publist/publist.go`,
+   `exchange/bitswap/pubmanager.go`:
+Manages the `publist` by mimicking the `wantlist` behavior.
+
+3. `core/commands/root.go`
+   `core/commands/pub.go`
+   `core/commands/sub.go`:
+The `ipfs pub` and `ipfs sub` commands.
+
+`ipfs pub` calls `bitswap.PubPubs()` to append new `[topic,key]` pairs to the 
+node's `publist`.
+`ipfs sub` calls `bitswap.SubTopics()` to register a communication channel with 
+`bitswap.pubSub()` for notifications.
 
 <!--
-The real work IPFS nodes would need to do behind the scenes is to continuously 
-broadcast information in the p2p network.
-This new subsystem could use a different port that would remain closed in nodes 
-not interested in participating in blockchains.
-
-Also, the `<gen-block>` arguments of `ipfs pubsub` makes easy for nodes to 
-ignore specific blockchains completely.
-Each node could manually provide a white list of chains of interest in 
-`~/.ipfs/config`.
-
-These policies preserve the overall *pull* nature of IPFS, i.e., there is no 
-way to force a node to subscribe for blockchain traffic or handle arbitrary 
-`<gen-block>` hashes.
-
-Looking at the IPFS Draft document (Section 3.4.4) seems like hacking with the 
-`want_list` could provide a fast track to a working prototype.
-A special bit flag could fix a `<gen-block>` so that any traffic matching
-`ipfs publish <gen-block>` would be sent to the node.
 For more scalability, peers sharing common `pubsub` interests should connect 
 directly to one another.
 -->
 
 ### Considerations
 
-- Is the `wantlist` propagation described in the white paper scalable?
-  Given the similarities, can we make the `publist` as scalable as the 
-  `wantlist`?
+- `wantlist` vs `publist`:
+  Is the `wantlist` propagation described in the white paper scalable?
+  Given the similarities, can we make `publist` as scalable as `wantlist` 
+  propagation?
 
-- Reducing overhead:
-  Also propagate the `sublist` of nodes
+- Extra `sublist`:
+  Instead of (or in addition to) propagating the `publist`, we could propagate 
+  the `sublist`.
 
-1. Overhead.
-- only propagate PubList to P if matches P.SubList
-- avoid resending the values peer already received from pub
+- Flooding: malicious node can make millions of `ipfs pub` calls.
+  How is this different than making millions of `ipfs cat` calls?
 
-- FLOODING
-	- sublist ~ wantlist
-	- publist propagates only if matches sublist of peer
-- FAST
-	- publisher discovering subscriber
-		- SUB message could contain subscriber address
-			- when P sees "K subs 'a' at S", then conect to S
-	- subscriber discovering publisher
-		- ipns with a growing list of peers that published to topic?
-	- (only optimizations, not required)
-- COOPERATION
-	- ideia de contar ledger dos dois lados?
-- ATTACKS
+- Speed of *pub/sub*: matching *pub/sub* nodes should connect directly to one 
+  another, e.g., *publist* messages could contain the source addresses, or
+  using `ipns` to maintain a growing list of publishers.
 
+- Forwarding overhead:
+  Avoid forwarding items already exchanged between peers.
 
-
+- Cooperation between peers:
+  Publishers have interest in their messages reaching their subscribers.
+  Subscribers have interest in the publishers messages.
+  The `ledger` could take this into account, but would require end-to-end 
+  acknowledging.
