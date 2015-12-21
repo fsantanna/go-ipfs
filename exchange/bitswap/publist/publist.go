@@ -7,11 +7,12 @@ import (
 	"sort"
 	"sync"
 	key "github.com/ipfs/go-ipfs/blocks/key"
-	sl "github.com/ipfs/go-ipfs/exchange/bitswap/sublist"
 )
 
+type Topic string
+
 type Pub struct {
-	Topic sl.Topic
+	Topic Topic
 	Value key.Key
 }
 

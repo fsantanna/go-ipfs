@@ -8,7 +8,7 @@ import (
 	cmds "github.com/ipfs/go-ipfs/commands"
 	key "github.com/ipfs/go-ipfs/blocks/key"
 	bitswap "github.com/ipfs/go-ipfs/exchange/bitswap"
-	sublist "github.com/ipfs/go-ipfs/exchange/bitswap/sublist"
+	publist "github.com/ipfs/go-ipfs/exchange/bitswap/publist"
 	u "github.com/ipfs/go-ipfs/util"
 )
 
@@ -67,9 +67,9 @@ TODO.
 			return
 		}
 
-		ts := []sublist.Topic{}
+		ts := []publist.Topic{}
 		for _, arg := range req.Arguments() {
-			topic := sublist.Topic(arg)
+			topic := publist.Topic(arg)
 			ts = append(ts, topic)
 		}
 

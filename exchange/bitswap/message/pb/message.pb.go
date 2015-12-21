@@ -24,9 +24,8 @@ var _ = math.Inf
 
 type Message struct {
 	Wantlist         *Message_Wantlist `protobuf:"bytes,1,opt,name=wantlist" json:"wantlist,omitempty"`
-	Sublist          *Message_Sublist  `protobuf:"bytes,2,opt,name=sublist" json:"sublist,omitempty"`
-	Publist          *Message_Publist  `protobuf:"bytes,3,opt,name=publist" json:"publist,omitempty"`
-	Blocks           [][]byte          `protobuf:"bytes,4,rep,name=blocks" json:"blocks,omitempty"`
+	Publist          *Message_Publist  `protobuf:"bytes,2,opt,name=publist" json:"publist,omitempty"`
+	Blocks           [][]byte          `protobuf:"bytes,3,rep,name=blocks" json:"blocks,omitempty"`
 	XXX_unrecognized []byte            `json:"-"`
 }
 
@@ -37,13 +36,6 @@ func (*Message) ProtoMessage()    {}
 func (m *Message) GetWantlist() *Message_Wantlist {
 	if m != nil {
 		return m.Wantlist
-	}
-	return nil
-}
-
-func (m *Message) GetSublist() *Message_Sublist {
-	if m != nil {
-		return m.Sublist
 	}
 	return nil
 }
@@ -118,62 +110,6 @@ func (m *Message_Wantlist_Entry) GetCancel() bool {
 	return false
 }
 
-type Message_Sublist struct {
-	Entries          []*Message_Sublist_Entry `protobuf:"bytes,1,rep,name=entries" json:"entries,omitempty"`
-	Full             *bool                    `protobuf:"varint,2,opt,name=full" json:"full,omitempty"`
-	XXX_unrecognized []byte                   `json:"-"`
-}
-
-func (m *Message_Sublist) Reset()         { *m = Message_Sublist{} }
-func (m *Message_Sublist) String() string { return proto.CompactTextString(m) }
-func (*Message_Sublist) ProtoMessage()    {}
-
-func (m *Message_Sublist) GetEntries() []*Message_Sublist_Entry {
-	if m != nil {
-		return m.Entries
-	}
-	return nil
-}
-
-func (m *Message_Sublist) GetFull() bool {
-	if m != nil && m.Full != nil {
-		return *m.Full
-	}
-	return false
-}
-
-type Message_Sublist_Entry struct {
-	Topic            *string `protobuf:"bytes,1,opt,name=topic" json:"topic,omitempty"`
-	Priority         *int32  `protobuf:"varint,2,opt,name=priority" json:"priority,omitempty"`
-	Cancel           *bool   `protobuf:"varint,3,opt,name=cancel" json:"cancel,omitempty"`
-	XXX_unrecognized []byte  `json:"-"`
-}
-
-func (m *Message_Sublist_Entry) Reset()         { *m = Message_Sublist_Entry{} }
-func (m *Message_Sublist_Entry) String() string { return proto.CompactTextString(m) }
-func (*Message_Sublist_Entry) ProtoMessage()    {}
-
-func (m *Message_Sublist_Entry) GetTopic() string {
-	if m != nil && m.Topic != nil {
-		return *m.Topic
-	}
-	return ""
-}
-
-func (m *Message_Sublist_Entry) GetPriority() int32 {
-	if m != nil && m.Priority != nil {
-		return *m.Priority
-	}
-	return 0
-}
-
-func (m *Message_Sublist_Entry) GetCancel() bool {
-	if m != nil && m.Cancel != nil {
-		return *m.Cancel
-	}
-	return false
-}
-
 type Message_Publist struct {
 	Entries          []*Message_Publist_Entry `protobuf:"bytes,1,rep,name=entries" json:"entries,omitempty"`
 	Full             *bool                    `protobuf:"varint,2,opt,name=full" json:"full,omitempty"`
@@ -200,7 +136,7 @@ func (m *Message_Publist) GetFull() bool {
 
 type Message_Publist_Entry struct {
 	Topic            *string `protobuf:"bytes,1,opt,name=topic" json:"topic,omitempty"`
-	Value            *string `protobuf:"bytes,2,opt,name=block" json:"block,omitempty"`
+	Value            *string `protobuf:"bytes,2,opt,name=value" json:"value,omitempty"`
 	Priority         *int32  `protobuf:"varint,3,opt,name=priority" json:"priority,omitempty"`
 	Cancel           *bool   `protobuf:"varint,4,opt,name=cancel" json:"cancel,omitempty"`
 	XXX_unrecognized []byte  `json:"-"`
@@ -242,8 +178,6 @@ func init() {
 	proto.RegisterType((*Message)(nil), "bitswap.message.pb.Message")
 	proto.RegisterType((*Message_Wantlist)(nil), "bitswap.message.pb.Message.Wantlist")
 	proto.RegisterType((*Message_Wantlist_Entry)(nil), "bitswap.message.pb.Message.Wantlist.Entry")
-	proto.RegisterType((*Message_Sublist)(nil), "bitswap.message.pb.Message.Sublist")
-	proto.RegisterType((*Message_Sublist_Entry)(nil), "bitswap.message.pb.Message.Sublist.Entry")
 	proto.RegisterType((*Message_Publist)(nil), "bitswap.message.pb.Message.Publist")
 	proto.RegisterType((*Message_Publist_Entry)(nil), "bitswap.message.pb.Message.Publist.Entry")
 }

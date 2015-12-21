@@ -21,7 +21,6 @@ import (
 	bsnet "github.com/ipfs/go-ipfs/exchange/bitswap/network"
 	notifications "github.com/ipfs/go-ipfs/exchange/bitswap/notifications"
 	wantlist "github.com/ipfs/go-ipfs/exchange/bitswap/wantlist"
-	sublist "github.com/ipfs/go-ipfs/exchange/bitswap/sublist"
 	publist "github.com/ipfs/go-ipfs/exchange/bitswap/publist"
 	peer "github.com/ipfs/go-ipfs/p2p/peer"
 	"github.com/ipfs/go-ipfs/thirdparty/delay"
@@ -85,15 +84,13 @@ func New(parent context.Context, p peer.ID, network bsnet.BitSwapNetwork,
 		newBlocks:     make(chan *blocks.Block, HasBlockBufferSize),
 		provideKeys:   make(chan key.Key, provideKeysBufferSize),
 		wm:            NewWantManager(ctx, network),
-		sm:            NewSubManager(ctx, network),
 		pm:            NewPubManager(ctx, network),
 		pub_channel:   pub_channel,
-		sub_channels:  make(map[chan key.Key]sublist.Topic),
+		sub_channels:  make(map[chan key.Key]publist.Topic),
 		engine:        decision.NewEngine(ctx, bstore, pub_channel), // TODO close the engine with Close() method
 
 	}
 	go bs.wm.Run(bs.engine)
-	go bs.sm.Run()
 	go bs.pm.Run(bs.engine)
 	go bs.pubSub()
 	network.SetDelegate(bs)
@@ -124,7 +121,6 @@ type Bitswap struct {
 	// the peermanager manages sending messages to peers in a way that
 	// wont block bitswap operation
 	wm *WantManager
-	sm *SubManager
 	pm *PubManager
 
 	// blockstore is the local database
@@ -150,7 +146,7 @@ type Bitswap struct {
 	dupDataRecvd   uint64
 
 	pub_channel    chan publist.Pub
-	sub_channels   map[chan key.Key]sublist.Topic
+	sub_channels   map[chan key.Key]publist.Topic
 }
 
 type blockRequest struct {
@@ -208,8 +204,7 @@ func (bs *Bitswap) WantlistForPeer(p peer.ID) []key.Key {
 	return out
 }
 
-func (bs *Bitswap) SubTopics(ks []sublist.Topic, channel chan key.Key) {
-	bs.sm.SubTopics(ks)
+func (bs *Bitswap) SubTopics(ks []publist.Topic, channel chan key.Key) {
 	for _, k := range ks {
 		bs.sub_channels[channel] = k
 	}
@@ -279,11 +274,6 @@ func (bs *Bitswap) GetBlocks(ctx context.Context, keys []key.Key) (<-chan *block
 // CancelWant removes a given key from the wantlist
 func (bs *Bitswap) CancelWants(ks []key.Key) {
 	bs.wm.CancelWants(ks)
-}
-
-// CancelSub removes a given key from the sublist
-func (bs *Bitswap) CancelSubs(ks []sublist.Topic) {
-	bs.sm.CancelSubs(ks)
 }
 
 // HasBlock announces the existance of a block to this bitswap service. The
@@ -421,14 +411,12 @@ func (bs *Bitswap) updateReceiveCounters(b *blocks.Block) error {
 // Connected/Disconnected warns bitswap about peer connections
 func (bs *Bitswap) PeerConnected(p peer.ID) {
 	bs.wm.Connected(p)
-	bs.sm.Connected(p)
 	bs.pm.Connected(p)
 }
 
 // Connected/Disconnected warns bitswap about peer connections
 func (bs *Bitswap) PeerDisconnected(p peer.ID) {
 	bs.wm.Disconnected(p)
-	bs.sm.Disconnected(p)
 	bs.pm.Disconnected(p)
 	bs.engine.PeerDisconnected(p)
 }
@@ -447,14 +435,6 @@ func (bs *Bitswap) GetWantlist() []key.Key {
 	var out []key.Key
 	for _, e := range bs.wm.wl.Entries() {
 		out = append(out, e.Key)
-	}
-	return out
-}
-
-func (bs *Bitswap) GetSublist() []sublist.Topic {
-	var out []sublist.Topic
-	for _, e := range bs.sm.sl.Entries() {
-		out = append(out, e.Topic)
 	}
 	return out
 }

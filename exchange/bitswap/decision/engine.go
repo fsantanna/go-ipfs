@@ -10,7 +10,6 @@ import (
 	bstore "github.com/ipfs/go-ipfs/blocks/blockstore"
 	bsmsg "github.com/ipfs/go-ipfs/exchange/bitswap/message"
 	wl "github.com/ipfs/go-ipfs/exchange/bitswap/wantlist"
-	sl "github.com/ipfs/go-ipfs/exchange/bitswap/sublist"
 	pl "github.com/ipfs/go-ipfs/exchange/bitswap/publist"
 	peer "github.com/ipfs/go-ipfs/p2p/peer"
 	logging "github.com/ipfs/go-ipfs/vendor/QmQg1J6vikuXF9oDvm4wpdeAUvvkVEKW1EYDw9HhTMnP2b/go-log"
@@ -220,7 +219,7 @@ func (e *Engine) MessageReceived(p peer.ID, m bsmsg.BitSwapMessage) error {
 	e.lock.Lock()
 	defer e.lock.Unlock()
 
-	if len(m.Wantlist()) == 0 && len(m.Sublist()) == 0 && len(m.Blocks()) == 0 {
+	if len(m.Wantlist()) == 0 && len(m.Publist()) == 0 && len(m.Blocks()) == 0 {
 		log.Debugf("received empty message from %s", p)
 	}
 
@@ -234,7 +233,7 @@ func (e *Engine) MessageReceived(p peer.ID, m bsmsg.BitSwapMessage) error {
 	l := e.findOrCreate(p)
 	if m.Full() {
 		l.wantList = wl.New()
-		l.subList  = sl.New()
+		l.pubList  = pl.New()
 	}
 
 	for _, entry := range m.Wantlist() {
@@ -250,24 +249,6 @@ fmt.Printf("[%v] WANTS %v\n", p.Pretty(), entry.Key)
 				e.peerRequestQueue.Push(entry.Entry, p)
 				newWorkExists = true
 			}
-		}
-	}
-
-	for _, entry := range m.Sublist() {
-		if entry.Cancel {
-			log.Debugf("cancel %s", entry.Topic)
-			l.CancelSub(entry.Topic)
-// TODO(chico)
-			//e.peerRequestQueue.Remove(entry.Topic, p)
-		} else {
-			log.Debugf("subs %s - %d", entry.Topic, entry.Priority)
-			l.Subs(entry.Topic, entry.Priority)
-fmt.Printf("[%v] SUBS %v\n", p.Pretty(), entry.Topic)
-// TODO(chico)
-			//if exists, err := e.bs.Has(entry.Topic); err == nil && exists {
-				//e.peerRequestQueue.Push(entry.Entry, p)
-				//newWorkExists = true
-			//}
 		}
 	}
 

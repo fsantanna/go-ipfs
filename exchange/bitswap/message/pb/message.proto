@@ -14,33 +14,20 @@ message Message {
     optional bool full = 2;     // whether this is the full wantlist. default to false
   }
 
-  message Sublist {
-
-    message Entry {
-      optional string topic = 1; // the topic string
-      optional int32 priority = 2; // the priority (normalized). default to 1
-      optional bool cancel = 3;  // whether this revokes an entry
-    }
-
-    repeated Entry entries = 1; // a list of sublist entries
-    optional bool full = 2;     // whether this is the full sublist. default to false
-  }
-
   message Publist {
 
     message Entry {
       optional string topic = 1; // the topic string
-      optional string block = 2; // the block (value) key
+      optional string value = 2; // the block (value) key
       optional int32 priority = 3; // the priority (normalized). default to 1
       optional bool cancel = 4;  // whether this revokes an entry
     }
 
-    repeated Entry entries = 1; // a list of sublist entries
-    optional bool full = 2;     // whether this is the full sublist. default to false
+    repeated Entry entries = 1; // a list of publist entries
+    optional bool full = 2;     // whether this is the full publist. default to false
   }
 
   optional Wantlist wantlist = 1;
-  optional Sublist sublist = 2;
-  optional Publist publist = 3;
-  repeated bytes blocks = 4;
+  optional Publist publist = 2;
+  repeated bytes blocks = 3;
 }

@@ -8,7 +8,6 @@ import (
 	key "github.com/ipfs/go-ipfs/blocks/key"
 	pb "github.com/ipfs/go-ipfs/exchange/bitswap/message/pb"
 	wantlist "github.com/ipfs/go-ipfs/exchange/bitswap/wantlist"
-	sublist "github.com/ipfs/go-ipfs/exchange/bitswap/sublist"
 	publist "github.com/ipfs/go-ipfs/exchange/bitswap/publist"
 	inet "github.com/ipfs/go-ipfs/p2p/net"
 
@@ -24,11 +23,7 @@ type BitSwapMessage interface {
 	// the sender.
 	Wantlist() []Entry
 
-	// Sublist returns a slice of unique keys that represent data subscribed by
-	// the sender.
-	Sublist() []EntrySub
-
-	// Sublist returns a slice of unique keys that represent data subscribed by
+	// Publist returns a slice of unique keys that represent data published by
 	// the sender.
 	Publist() []EntryPub
 
@@ -44,11 +39,6 @@ type BitSwapMessage interface {
 
 	// A full wantlist is an authoritative copy, a 'non-full' wantlist is a patch-set
 	Full() bool
-
-	// AddSub adds an entry to the Sublist.
-	AddEntrySub(key sublist.Topic, priority int)
-
-	CancelSub(key sublist.Topic)
 
 	// AddPub adds an entry to the Publist.
 	AddEntryPub(key publist.Pub, priority int)
@@ -69,7 +59,6 @@ type Exportable interface {
 type impl struct {
 	full     bool
 	wantlist map[key.Key]Entry
-	sublist  map[sublist.Topic]EntrySub
 	publist  map[publist.Pub]EntryPub
 	blocks   map[key.Key]*blocks.Block
 }
@@ -82,7 +71,6 @@ func newMsg(full bool) *impl {
 	return &impl{
 		blocks:   make(map[key.Key]*blocks.Block),
 		wantlist: make(map[key.Key]Entry),
-		sublist:  make(map[sublist.Topic]EntrySub),
 		publist:  make(map[publist.Pub]EntryPub),
 		full:     full,
 	}
@@ -90,11 +78,6 @@ func newMsg(full bool) *impl {
 
 type Entry struct {
 	wantlist.Entry
-	Cancel bool
-}
-
-type EntrySub struct {
-	sublist.Entry
 	Cancel bool
 }
 
@@ -108,12 +91,8 @@ func newMessageFromProto(pbm pb.Message) BitSwapMessage {
 	for _, e := range pbm.GetWantlist().GetEntries() {
 		m.addEntry(key.Key(e.GetBlock()), int(e.GetPriority()), e.GetCancel())
 	}
-	//m = newMsg(pbm.GetSublist().GetFull())
-	for _, e := range pbm.GetSublist().GetEntries() {
-		m.addEntrySub(sublist.Topic(e.GetTopic()), int(e.GetPriority()), e.GetCancel())
-	}
 	for _, e := range pbm.GetPublist().GetEntries() {
-		m.addEntryPub(publist.Pub(publist.Pub{sublist.Topic(e.GetTopic()),key.Key(e.GetValue())}), int(e.GetPriority()), e.GetCancel())
+		m.addEntryPub(publist.Pub(publist.Pub{publist.Topic(e.GetTopic()),key.Key(e.GetValue())}), int(e.GetPriority()), e.GetCancel())
 	}
 	for _, d := range pbm.GetBlocks() {
 		b := blocks.NewBlock(d)
@@ -127,20 +106,12 @@ func (m *impl) Full() bool {
 }
 
 func (m *impl) Empty() bool {
-	return len(m.blocks) == 0 && len(m.wantlist) == 0 && len(m.sublist) == 0 && len(m.publist) == 0
+	return len(m.blocks) == 0 && len(m.wantlist) == 0 && len(m.publist) == 0
 }
 
 func (m *impl) Wantlist() []Entry {
 	var out []Entry
 	for _, e := range m.wantlist {
-		out = append(out, e)
-	}
-	return out
-}
-
-func (m *impl) Sublist() []EntrySub {
-	var out []EntrySub
-	for _, e := range m.sublist {
 		out = append(out, e)
 	}
 	return out
@@ -180,32 +151,6 @@ func (m *impl) addEntry(k key.Key, priority int, cancel bool) {
 		m.wantlist[k] = Entry{
 			Entry: wantlist.Entry{
 				Key:      k,
-				Priority: priority,
-			},
-			Cancel: cancel,
-		}
-	}
-}
-
-func (m *impl) CancelSub(k sublist.Topic) {
-	delete(m.sublist, k)
-	m.addEntrySub(k, 0, true)
-}
-
-func (m *impl) AddEntrySub(k sublist.Topic, priority int) {
-	m.addEntrySub(k, priority, false)
-}
-
-func (m *impl) addEntrySub(k sublist.Topic, priority int, cancel bool) {
-	e, exists := m.sublist[k]
-	if exists {
-		e.Priority = priority
-		e.Cancel = cancel
-	} else {
-fmt.Printf("SUB-4 %v %v\n", k, cancel);
-		m.sublist[k] = EntrySub{
-			Entry: sublist.Entry{
-				Topic:    k,
 				Priority: priority,
 			},
 			Cancel: cancel,
@@ -265,14 +210,6 @@ func (m *impl) ToProto() *pb.Message {
 			Cancel:   proto.Bool(e.Cancel),
 		})
 	}
-	pbm.Sublist = new(pb.Message_Sublist)
-	for _, e := range m.sublist {
-		pbm.Sublist.Entries = append(pbm.Sublist.Entries, &pb.Message_Sublist_Entry{
-			Topic:    proto.String(string(e.Topic)),
-			Priority: proto.Int32(int32(e.Priority)),
-			Cancel:   proto.Bool(e.Cancel),
-		})
-	}
 	pbm.Publist = new(pb.Message_Publist)
 	for _, e := range m.publist {
 		pbm.Publist.Entries = append(pbm.Publist.Entries, &pb.Message_Publist_Entry{
@@ -305,7 +242,6 @@ func (m *impl) Loggable() map[string]interface{} {
 	return map[string]interface{}{
 		"blocks": blocks,
 		"wants":  m.Wantlist(),
-		"subs":   m.Sublist(),
 		"pubs":   m.Publist(),
 	}
 }
