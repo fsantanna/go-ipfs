@@ -51,12 +51,15 @@ Therefore, the main question with this exercise is:
 
 ### Hello World!
 
-Alice at `HOST1` wants to publish the message `Hello World!` to all 
-subscribers of the topic `cool-channel`.
-
 <a href="https://player.vimeo.com/video/149632333" target="_blank">
 <img src="hello.png" align="right" valign="top" width="400"/>
 </a>
+
+Alice at `HOST1` wants to publish the message `Hello World!` to all 
+subscribers of the topic `cool-channel`.
+
+(Click the image in the right to open a screencast of this example in a new 
+window.)
 
 First, Alice adds the message with `ipfs add` and acquires the corresponding 
 path:
@@ -102,12 +105,15 @@ Hello World!
 
 ### A Conversation
 
-Alice and Bob want to exchange messages, similarly to how they already do 
-through emails.
-
 <a href="https://player.vimeo.com/video/149634615" target="_blank">
 <img src="conversation.png" align="right" valign="top" width="400"/>
 </a>
+
+Alice and Bob want to exchange messages, similarly to how they already do 
+through emails.
+
+(Click the image in the right to open a screencast of this example in a new 
+window.)
 
 First, they both subscribe to topics representing their mailboxes:
 
@@ -244,6 +250,53 @@ Except for steps `1` and `5`, this behavior is similar to the one described for
 , Section 3.4.4.
 
 ### Testing
+
+Create three new users:
+
+```
+$ sudo adduser alice
+$ sudo adduser bob
+$ sudo adduser router
+```
+
+The `router` servers as a node in between `alice` and `bob` to assert that 
+`publist` really propagates.
+
+Switch to each user, execute `ipfs init`, and edit `~/.ipfs/config`:
+
+```
+$ su - alice
+$ ipfs init
+$ vi ~/.ipfs/config
+```
+
+Change all `ports` in `Addresses` so that they do not conflict:
+
+```
+  "Addresses": {
+    "Swarm": [
+      "/ip4/0.0.0.0/tcp/4003",
+      "/ip6/::/tcp/4003"
+    ],
+    "API": "/ip4/127.0.0.1/tcp/5003",
+    "Gateway": "/ip4/127.0.0.1/tcp/8083"
+  },
+```
+
+Change the `Bootstrap` nodes to form the topology above:
+
+```
+  "Bootstrap": [
+	"/ip4/127.0.0.1/tcp/4001/ipfs/<alice-addr>",
+	"/ip4/127.0.0.1/tcp/4002/ipfs/<bob-addr>"
+  ],
+```
+
+Now you are ready to run the examples above:
+
+```
+$ ipfs daemon
+```
 
 ### Source Walkthrough
 
