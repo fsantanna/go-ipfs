@@ -41,7 +41,7 @@ subscribers.
 
 This is an exercise.
 Although we believe the proposed/desired API is powerful and generic for many 
-[applications](#Examples)), the proposed [implementation](#Implementation) is 
+[applications](#examples), the proposed [implementation](#implementation) is 
 naive and does not scale.
 Therefore, the main question with this exercise is:
 
@@ -54,8 +54,9 @@ Therefore, the main question with this exercise is:
 Alice at `HOST1` wants to publish the message `Hello World!` to all 
 subscribers of the topic `cool-channel`.
 
-<iframe src="https://player.vimeo.com/video/149632333" width="500" height="273" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe>
-<p><a href="https://vimeo.com/149632333">hello</a> from <a href="https://vimeo.com/user28619189">Francisco Sant&#039;Anna</a> on <a href="https://vimeo.com">Vimeo</a>.</p>
+<a href="https://player.vimeo.com/video/149632333" target="_blank">
+<img src="hello.png" align="right" valign="top" width="400"/>
+</a>
 
 First, Alice adds the message with `ipfs add` and acquires the corresponding 
 path:
@@ -104,8 +105,9 @@ Hello World!
 Alice and Bob want to exchange messages, similarly to how they already do 
 through emails.
 
-<iframe src="https://player.vimeo.com/video/149634615" width="500" height="273" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe>
-<p><a href="https://vimeo.com/149634615">conversation</a> from <a href="https://vimeo.com/user28619189">Francisco Sant&#039;Anna</a> on <a href="https://vimeo.com">Vimeo</a>.</p>
+<a href="https://player.vimeo.com/video/149634615" target="_blank">
+<img src="conversation.png" align="right" valign="top" width="400"/>
+</a>
 
 First, they both subscribe to topics representing their mailboxes:
 
@@ -221,7 +223,7 @@ TBD.
 The current implementation is the
 [*simplest thing that could possibly work*](http://c2.com/cgi/wiki?DoTheSimplestThingThatCouldPossiblyWork).
 
-<img src="pubsub.png" align="right" valign="top" width="200"/>
+<img src="pubsub.png" align="right" valign="top" width="400"/>
 
 We assume that publishers and subscribers do not know each other and are not 
 directly connected in the peer-to-peer network.
