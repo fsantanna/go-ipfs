@@ -40,22 +40,22 @@ We employ best-effort delivery, with no guarantees that publishers reach their
 subscribers.
 
 This is an exercise.
-Although the proposed/desired API is powerful and generic for many applications 
-(see #Examples), the proposed implementation (see #Implementation) is naive and 
-does not scale.
-Therefore, my main question with this exercise is:
+Although we believe the proposed/desired API is powerful and generic for many 
+[applications](#Examples)), the proposed [implementation](#Implementation) is 
+naive and does not scale.
+Therefore, the main question with this exercise is:
 
-> Is it possible to support a scalable `ipfs sub` and `ipfs pub` APIs?
-
+> Is it possible to support a scalable `ipfs sub` and `ipfs pub` API?
 
 ## Examples
-
-Refer to #Testing to see how to execute the examples.
 
 ### Hello World!
 
 Alice at `HOST1` wants to publish the message `Hello World!` to all 
 subscribers of the topic `cool-channel`.
+
+<iframe src="https://player.vimeo.com/video/149632333" width="500" height="273" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe>
+<p><a href="https://vimeo.com/149632333">hello</a> from <a href="https://vimeo.com/user28619189">Francisco Sant&#039;Anna</a> on <a href="https://vimeo.com">Vimeo</a>.</p>
 
 First, Alice adds the message with `ipfs add` and acquires the corresponding 
 path:
@@ -103,6 +103,9 @@ Hello World!
 
 Alice and Bob want to exchange messages, similarly to how they already do 
 through emails.
+
+<iframe src="https://player.vimeo.com/video/149634615" width="500" height="273" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe>
+<p><a href="https://vimeo.com/149634615">conversation</a> from <a href="https://vimeo.com/user28619189">Francisco Sant&#039;Anna</a> on <a href="https://vimeo.com">Vimeo</a>.</p>
 
 First, they both subscribe to topics representing their mailboxes:
 
@@ -218,7 +221,7 @@ TBD.
 The current implementation is the
 [*simplest thing that could possibly work*](http://c2.com/cgi/wiki?DoTheSimplestThingThatCouldPossiblyWork).
 
-<img src="pubsub.png" align="right" valign="top"/>
+<img src="pubsub.png" align="right" valign="top" width="200"/>
 
 We assume that publishers and subscribers do not know each other and are not 
 directly connected in the peer-to-peer network.
