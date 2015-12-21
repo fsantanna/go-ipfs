@@ -39,7 +39,18 @@ The command `ipfs sub` reads as
 We employ best-effort delivery, with no guarantees that publishers reach their 
 subscribers.
 
+This is an exercise.
+Although the proposed/desired API is powerful and generic for many applications 
+(see #Examples), the proposed implementation (see #Implementation) is naive and 
+does not scale.
+Therefore, my main question with this exercise is:
+
+> Is it possible to support a scalable `ipfs sub` and `ipfs pub` APIs?
+
+
 ## Examples
+
+Refer to #Testing to see how to execute the examples.
 
 ### Hello World!
 
@@ -196,16 +207,48 @@ Talk to me.
 Alice
 ```
 
-<!--
-The conversation can be made private
-can be private and safe by previously exchanging keys and using PKI
--->
+Conversations can become private through public-key cryptography.
 
 ### A Simple Blockchain
 
 TBD.
 
 ## Implementation
+
+The current implementation is the
+[*simplest thing that could possibly work*](http://c2.com/cgi/wiki?DoTheSimplestThingThatCouldPossiblyWork).
+
+<img src="pubsub.png" align="right" valign="top"/>
+
+We assume that publishers and subscribers do not know each other and are not 
+directly connected in the peer-to-peer network.
+The figure in the right illustrates the general idea:
+
+1. Node keeps its list of subscribed topics, `sublist`, from calls to `ipfs sub`.
+2. Node keeps its list of published items, `publist`, from calls to `ipfs pub`.
+3. Node periodically broadcasts its `publist` to connected peers.
+4. Node appends received `publists` to its own `publist`.
+5. Whenever `sublist` has an intersection with `publist`, Node redirects it to 
+corresponding `ipfs sub`.
+
+Eventually, all nodes receive all `publists` in the network.
+
+Except for steps `1` and `5`, this behavior is similar to the one described for 
+`wantlists` in the
+[IPFS whitepaper](https://github.com/ipfs/papers/raw/master/ipfs-cap2pfs/ipfs-p2p-file-system.pdf)
+, Section 3.4.4.
+
+### Testing
+
+### Source Walkthrough
+
+To see all changes comparing to the latest commit of the official repository:
+
+```
+$ git clone https://github.com/fsantanna/go-ipfs
+$ git checkout no-sublist
+$ git difftool fbb607dc661bfe6dcac4e875a22ff96cccfb395c
+```
 
 <!--
 The real work IPFS nodes would need to do behind the scenes is to continuously 
@@ -229,3 +272,33 @@ A special bit flag could fix a `<gen-block>` so that any traffic matching
 For more scalability, peers sharing common `pubsub` interests should connect 
 directly to one another.
 -->
+
+### Considerations
+
+- Is the `wantlist` propagation described in the white paper scalable?
+  Given the similarities, can we make the `publist` as scalable as the 
+  `wantlist`?
+
+- Reducing overhead:
+  Also propagate the `sublist` of nodes
+
+1. Overhead.
+- only propagate PubList to P if matches P.SubList
+- avoid resending the values peer already received from pub
+
+- FLOODING
+	- sublist ~ wantlist
+	- publist propagates only if matches sublist of peer
+- FAST
+	- publisher discovering subscriber
+		- SUB message could contain subscriber address
+			- when P sees "K subs 'a' at S", then conect to S
+	- subscriber discovering publisher
+		- ipns with a growing list of peers that published to topic?
+	- (only optimizations, not required)
+- COOPERATION
+	- ideia de contar ledger dos dois lados?
+- ATTACKS
+
+
+
