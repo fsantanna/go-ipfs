@@ -259,13 +259,13 @@ $ sudo adduser bob
 $ sudo adduser router
 ```
 
-The `router` servers as a node in between `alice` and `bob` to assert that 
-`publist` really propagates.
+The `router` servers as a node in between `alice` and `bob` (i.e., `HOST-X` in 
+the figure above) to assert that `publist` really propagates.
 
 Switch to each user, execute `ipfs init`, and edit `~/.ipfs/config`:
 
 ```
-$ su - alice
+$ su - router
 $ ipfs init
 $ vi ~/.ipfs/config
 ```
@@ -283,7 +283,7 @@ Change all `ports` in `Addresses` so that they do not conflict:
   },
 ```
 
-Change the `Bootstrap` nodes to form the topology above:
+Change the `Bootstrap` nodes to form the topology in the figure above:
 
 ```
   "Bootstrap": [
@@ -292,10 +292,17 @@ Change the `Bootstrap` nodes to form the topology above:
   ],
 ```
 
-Now you are ready to run the examples above:
+Now you are ready to run the [examples](#examples) above:
 
 ```
-$ ipfs daemon
+$ /data/go/bin/ipfs daemon
+Initializing daemon...
+Swarm listening on /ip4/127.0.0.1/tcp/4003
+Swarm listening on /ip4/192.168.1.104/tcp/4003
+Swarm listening on /ip6/::1/tcp/4003
+API server listening on /ip4/127.0.0.1/tcp/5003
+Gateway (readonly) server listening on /ip4/127.0.0.1/tcp/8083
+Daemon is ready
 ```
 
 ### Source Walkthrough
@@ -307,6 +314,11 @@ $ git clone https://github.com/fsantanna/go-ipfs
 $ git checkout no-sublist
 $ git difftool fbb607dc661bfe6dcac4e875a22ff96cccfb395c
 ```
+
+Main changes:
+
+1.
+2.
 
 <!--
 The real work IPFS nodes would need to do behind the scenes is to continuously 
