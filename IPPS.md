@@ -15,8 +15,9 @@ The *Publish-Subscribe Pattern*:
 Currently, there is no *pub/sub* mechanism available for IPFS users because 
 there is no easy way to broadcast (or listen to) file submissions.
 
-IPFS is *pull-driven* and not *push-driven*, i.e., you cannot say to the world 
+IPFS is *pull-driven* and not *push-driven*, i.e., one cannot say to the world 
 "hey, look at this new cat picture".
+Instead, users need to know the path of a file and explicitly request it.
 
 We propose (and implement) two new commands to provide *pub/sub* for IPFS:
 
@@ -34,7 +35,7 @@ The command `ipfs pub` reads as
 
 > Broadcast the file `<ipfs-path>` to all subscribers of `<topic-string>`.
 
-The command `ipfs sub` reads as
+The blocking command `ipfs sub` reads as
 
 > Whenever someone broadcasts a new file to `<topic-string>`, output its 
 > `<ipfs-path>`.
@@ -174,7 +175,7 @@ Alice
 ```
 
 Bob replies to the message, keeping a *backlink* to the original message in the 
-directory `previous`:
+sub-directory `previous`:
 
 ```
 bob@HOST2$ mkdir to-alice
@@ -239,6 +240,7 @@ The current implementation is the
 
 We assume that publishers and subscribers do not know each other and are not 
 directly connected in the peer-to-peer network.
+
 The figure in the right illustrates the general idea:
 
 1. A node keeps its list of subscribed topics, `sublist`, which changes from 
@@ -247,8 +249,8 @@ calls to `ipfs sub`.
 calls to `ipfs pub`.
 3. A node periodically broadcasts its `publist` to connected peers.
 4. A node appends received `publists` to its own `publist`.
-5. Whenever its `sublist` has an intersection with its `publist`, a node 
-redirects it to the corresponding `ipfs sub` command call.
+5. A node notifies the appropriate `ipfs sub` command call whenever its 
+`sublist` has an intersection with its `publist`,
 
 Eventually, all nodes receive all `publists` in the network.
 
